@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -26,83 +23,13 @@ type (
 
 var Groups = make(GroupList)
 
-type User struct {
-	Name string `json:"displayName"`
-	GID  string `json:"name"`
-	Type string `json:"type"`
-}
+func main() {
+	fmt.Println("Running!! on port " + PORT)
 
-type messageResponse struct {
-	Message struct {
-		Sender struct {
-			GID  string `json:"name"`
-			Name string `json:"displayName"`
-		} `json:"sender"`
+	http.HandleFunc("/", theHandler)
 
-		Mentions []struct {
-			Called struct {
-				User `json:"user"`
-			} `json:"userMention"`
-			Type string `json:"type"`
-		} `json:"annotations"`
-
-		Text string `json:"text"`
-	} `json:"message"`
-}
-
-func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
-	tempArgs := strings.Fields(mr.Message.Text)
-	nArgs := len(tempArgs)
-	if nArgs < 2 {
-		msg = BOTNAME + " seems to have been called with no params. Just a heads up."
-		ok = false
-
-		return
-	}
-
-	args = make(Arguments)
-	ok = true
-	msg = ""
-
-	if tempArgs[0] == BOTNAME {
-		option := strings.ToLower(tempArgs[1])
-
-		if option != "create" &&
-			option != "add" &&
-			option != "remove" &&
-			option != "delete" &&
-			option != "list" &&
-			option != "usage" {
-			msg = fmt.Sprintf("Invalid option received, %q. Full Message: %q", tempArgs[1], mr.Message.Text)
-			ok = false
-		} else {
-			args["action"] = option
-
-			if option != "usage" {
-				if nArgs < 3 {
-					args["groupName"] = ""
-				} else {
-					args["groupName"] = tempArgs[2]
-				}
-			}
-		}
-	} else {
-		args["action"] = "notify"
-		pu := 100000
-
-		for i, v := range tempArgs {
-			if v == BOTNAME {
-				pu = i
-			}
-
-			if i == pu+1 {
-				args["groupName"], msg, ok = Groups.Validate(v)
-				break
-			}
-		}
-	}
-
-	return
+	e := http.ListenAndServeTLS(PORT, CERT, KEY, nil)
+	checkError(e)
 }
 
 func theHandler(w http.ResponseWriter, r *http.Request) {
@@ -156,48 +83,6 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 
-func checkError(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func describe(msg string, v ...interface{}) {
-	spew.Printf(msg, v...)
-}
-
-func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
-	ok = true
-
-	args, msg, okay := msgObj.ParseArgs()
-	if !okay {
-		errMsg = msg
-		ok = false
-		return
-	}
-
-	switch args["action"] {
-	case "create":
-		retMsg = Groups.Create(args["groupName"], msgObj)
-	case "delete":
-		retMsg = "Received Call to " + args["action"]
-	case "add":
-		retMsg = "Received Call to " + args["action"]
-	case "remove":
-		retMsg = "Received Call to " + args["action"]
-	case "notify":
-		retMsg = "Received Call to " + args["action"]
-	case "list":
-		retMsg = Groups.List(args["groupName"])
-	case "usage":
-		retMsg = usage()
-	default:
-		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
-	}
-
-	return
-}
-
 func usage() string {
 	msg := `
 Usage: @HGNotify [options] [GroupName] [mentions...]
@@ -241,13 +126,4 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
     - Any problems please contact me at ----
 `
 	return fmt.Sprintf(" ```%s```", msg)
-}
-
-func main() {
-	fmt.Println("Running!! on port " + PORT)
-
-	http.HandleFunc("/", theHandler)
-
-	e := http.ListenAndServeTLS(PORT, CERT, KEY, nil)
-	checkError(e)
 }
