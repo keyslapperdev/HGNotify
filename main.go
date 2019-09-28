@@ -20,33 +20,46 @@ const (
 )
 
 type (
-	GenericJSON   map[string]interface{}
-	mentionGroups map[string]NamedGroup
-	Arguments     map[string]string
+	GenericJSON map[string]interface{}
+	Arguments   map[string]string
 )
 
-type NamedGroup struct {
-	ID      uint     `json:"id"`
-	Name    string   `json:"groupName"`
-	Members []string `json:"groupMembers"`
-	Origin  string   `json:"homeRoom"`
+var Groups = make(GroupList)
+
+type User struct {
+	Name string `json:"displayName"`
+	GID  string `json:"name"`
+	Type string `json:"type"`
 }
 
 type messageResponse struct {
-	Space struct {
-		Name string `json:"displayName"`
-	}
 	Message struct {
 		Sender struct {
+			GID  string `json:"name"`
 			Name string `json:"displayName"`
 		} `json:"sender"`
+
+		Mentions []struct {
+			Called struct {
+				User `json:"user"`
+			} `json:"userMention"`
+			Type string `json:"type"`
+		} `json:"annotations"`
 
 		Text string `json:"text"`
 	} `json:"message"`
 }
 
 func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
-	tempArgs := strings.Split(mr.Message.Text, " ")
+	tempArgs := strings.Fields(mr.Message.Text)
+	nArgs := len(tempArgs)
+	if nArgs < 2 {
+		msg = BOTNAME + " seems to have been called with no params. Just a heads up."
+		ok = false
+
+		return
+	}
+
 	args = make(Arguments)
 	ok = true
 	msg = ""
@@ -63,7 +76,15 @@ func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
 			msg = fmt.Sprintf("Invalid option received, %q. Full Message: %q", tempArgs[1], mr.Message.Text)
 			ok = false
 		} else {
-			args["action"] = tempArgs[1]
+			args["action"] = option
+
+			if option != "usage" {
+				if nArgs < 3 {
+					args["groupName"] = ""
+				} else {
+					args["groupName"] = tempArgs[2]
+				}
+			}
 		}
 	} else {
 		args["action"] = "notify"
@@ -75,7 +96,7 @@ func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
 			}
 
 			if i == pu+1 {
-				args["group"], msg, ok = validateGroup(v)
+				args["groupName"], msg, ok = Groups.Validate(v)
 				break
 			}
 		}
@@ -131,6 +152,7 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		jsonResp, e = json.Marshal(resp)
 	}
 
+	//describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
 	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 
@@ -147,25 +169,26 @@ func describe(msg string, v ...interface{}) {
 func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	ok = true
 
-	args, msg, iight := msgObj.ParseArgs()
-	if !iight {
+	args, msg, okay := msgObj.ParseArgs()
+	if !okay {
 		errMsg = msg
 		ok = false
 		return
 	}
 
-	//stub
 	switch args["action"] {
 	case "create":
-		retMsg = "Received Call to " + args["action"]
+		retMsg = Groups.Create(args["groupName"], msgObj)
 	case "delete":
 		retMsg = "Received Call to " + args["action"]
 	case "add":
 		retMsg = "Received Call to " + args["action"]
 	case "remove":
 		retMsg = "Received Call to " + args["action"]
-	case "list":
+	case "notify":
 		retMsg = "Received Call to " + args["action"]
+	case "list":
+		retMsg = Groups.List(args["groupName"])
 	case "usage":
 		retMsg = usage()
 	default:
@@ -173,26 +196,6 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	}
 
 	return
-}
-
-func validateGroup(groupName string) (name, msg string, ok bool) {
-	ok = true
-
-	Groups := getGroups()
-
-	if _, exist := Groups[groupName]; !exist {
-		msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"@HGNotify create %s\".", groupName, groupName)
-		ok = false
-	} else {
-		name = groupName
-	}
-
-	return
-}
-
-func getGroups() (groups mentionGroups) {
-	//stub
-	return mentionGroups{}
 }
 
 func usage() string {
