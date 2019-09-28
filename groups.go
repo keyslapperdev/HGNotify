@@ -41,17 +41,29 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	newGroup := namedGroup{Name: groupName}
 
 	var newMembers string
-	for _, mention := range mentions {
-		if mention.Called.Type != "BOT" &&
-			mention.Type == "USER_MENTION" {
+	for i, mention := range mentions {
+		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
+			if i > 1 {
+				newMembers += ","
+			}
 			newGroup.addMember(mention.Called.User)
 
-			newMembers += mention.Called.Name + " "
+			newMembers += " " + mention.Called.Name
 		}
 	}
 
 	gl[saveName] = newGroup
 	return fmt.Sprintf("Created group %q with user(s) %s", groupName, newMembers)
+}
+
+func (gl GroupList) Delete(groupName string) string {
+	saveName := strings.ToLower(groupName)
+	if _, exists := gl[saveName]; !exists {
+		return fmt.Sprintf("Group %q doesn't seem to exist to be deleted.", groupName)
+	}
+
+	delete(gl, groupName)
+	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
 
 func (gl GroupList) List(groupName string) string {

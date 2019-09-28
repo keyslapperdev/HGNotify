@@ -50,7 +50,7 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 	switch payload["type"] {
 	case "ADDED_TO_SPACE":
 		resp := map[string]string{
-			"text": "Thank you for inviting me! Here's how I work" + usage(),
+			"text": "Thank you for inviting me! Here's what I'm about:" + usage(),
 		}
 		jsonResp, e = json.Marshal(resp)
 

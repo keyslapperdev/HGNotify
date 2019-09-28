@@ -98,7 +98,7 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "create":
 		retMsg = Groups.Create(args["groupName"], msgObj)
 	case "delete":
-		retMsg = "Received Call to " + args["action"]
+		retMsg = Groups.Delete(args["groupName"]) //redraw?
 	case "add":
 		retMsg = "Received Call to " + args["action"]
 	case "remove":
