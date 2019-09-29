@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type (
-	GroupList map[string]namedGroup
+	GroupList map[string]*namedGroup
 )
 
 type namedGroup struct {
@@ -32,13 +34,14 @@ func (ng *namedGroup) addMember(member User) {
 }
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
-	saveName := strings.ToLower(groupName)
-	if _, exists := gl[saveName]; exists {
+	saveName, exists := gl.CheckGroup(groupName)
+	if exists {
 		return fmt.Sprintf("Group %q seems to already exist. If you'd like to remove and recreate the group please say \"@HGNotify delete %s\" followed by \"@HGNotify create %s @Members...\"", groupName, groupName, groupName)
 	}
 
 	mentions := msgObj.Message.Mentions
-	newGroup := namedGroup{Name: groupName}
+	newGroup := new(namedGroup)
+	newGroup.Name = groupName
 
 	var newMembers string
 	for i, mention := range mentions {
@@ -57,33 +60,83 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 }
 
 func (gl GroupList) Delete(groupName string) string {
-	saveName := strings.ToLower(groupName)
-	if _, exists := gl[saveName]; !exists {
+	saveName, exists := gl.CheckGroup(groupName)
+	if !exists {
 		return fmt.Sprintf("Group %q doesn't seem to exist to be deleted.", groupName)
 	}
 
-	delete(gl, groupName)
+	delete(gl, saveName)
 	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
 
-func (gl GroupList) List(groupName string) string {
-	saveName := strings.ToLower(groupName)
-
-	if groupName == "" {
-		return fmt.Sprintf("Structure of all stored groups: ```%v```", gl)
+func (gl GroupList) AddMember(groupName string, msgObj messageResponse) string {
+	saveName, exists := gl.CheckGroup(groupName)
+	if !exists {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
 
-	return fmt.Sprintf("Structure of requested group %q: ```%v```", groupName, gl[saveName])
+	var (
+		addedMembers    string
+		existingMembers string
+		text            string
+	)
+
+	for _, mention := range msgObj.Message.Mentions {
+		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
+			exist := gl.CheckMember(groupName, mention.Called.GID)
+
+			if !exist {
+				gl[saveName].addMember(mention.Called.User)
+
+				addedMembers += mention.Called.Name + " "
+			} else {
+				existingMembers += mention.Called.Name + " "
+			}
+		}
+	}
+
+	if addedMembers != "" {
+		text += fmt.Sprintf("Got [ %s] added to the group %q. ", addedMembers, groupName)
+	}
+
+	if existingMembers != "" {
+		text += fmt.Sprintf("User(s) [ %s] previously added the group %q. ", existingMembers, groupName)
+	}
+
+	return text
 }
 
-func (gl GroupList) Validate(groupName string) (name, msg string, ok bool) {
-	ok = true
+func (gl GroupList) List(groupName string) string {
+	if groupName == "" {
+		return spew.Sprintf("Structure of all stored groups: ```%v```", gl)
+	}
 
-	if _, exist := Groups[groupName]; !exist {
-		msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"@HGNotify create %s\".", groupName, groupName)
-		ok = false
-	} else {
-		name = groupName
+	return spew.Sprintf("Structure of requested group %q: ```%v```", groupName, gl[strings.ToLower(groupName)])
+}
+
+func (gl GroupList) CheckGroup(groupName string) (saveName string, here bool) {
+	//TODO: Check for proper formatting
+	here = true
+	saveName = strings.ToLower(groupName)
+
+	if _, exist := gl[saveName]; !exist {
+		here = false
+	}
+
+	return
+}
+
+func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
+	here = true
+	saveName := strings.ToLower(groupName)
+
+	for _, member := range gl[saveName].Members {
+		if memberID == member.GID {
+			here = true
+			break
+		} else {
+			here = false
+		}
 	}
 
 	return

@@ -29,7 +29,7 @@ type messageResponse struct {
 	} `json:"message"`
 }
 
-func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
+func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	tempArgs := strings.Fields(mr.Message.Text)
 	nArgs := len(tempArgs)
 	if nArgs < 2 {
@@ -75,7 +75,10 @@ func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
 			}
 
 			if i == pu+1 {
-				args["groupName"], msg, ok = Groups.Validate(v)
+				args["groupName"], ok = Groups.CheckGroup(v)
+				if !ok {
+					msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"@HGNotify create %s\".", v, v)
+				}
 				break
 			}
 		}
@@ -87,7 +90,7 @@ func (mr messageResponse) ParseArgs() (args Arguments, msg string, ok bool) {
 func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	ok = true
 
-	args, msg, okay := msgObj.ParseArgs()
+	args, msg, okay := msgObj.parseArgs()
 	if !okay {
 		errMsg = msg
 		ok = false
@@ -98,9 +101,9 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "create":
 		retMsg = Groups.Create(args["groupName"], msgObj)
 	case "delete":
-		retMsg = Groups.Delete(args["groupName"]) //redraw?
+		retMsg = Groups.Delete(args["groupName"])
 	case "add":
-		retMsg = "Received Call to " + args["action"]
+		retMsg = Groups.AddMember(args["groupName"], msgObj)
 	case "remove":
 		retMsg = "Received Call to " + args["action"]
 	case "notify":
