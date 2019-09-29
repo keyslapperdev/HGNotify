@@ -123,6 +123,8 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
     - Group Names are case insensative.
     - Group Names can contain letters, numbers, underscores, and dashes
     - When managing groups, "@HGNotify" must be the first thing in the messages
+    - When notifying a group the text "@HGNotify GroupName" will be replaced with the members of the group. Just a heads up, so be sure to place that where you'd like it to appear.
+
     - Any problems please contact me at ----
 `
 	return fmt.Sprintf(" ```%s```", msg)

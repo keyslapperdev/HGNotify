@@ -33,18 +33,35 @@ func (ng *namedGroup) addMember(member User) {
 	ng.Members = append(ng.Members, addition)
 }
 
+func (ng *namedGroup) removeMember(member User) {
+	for i, groupMember := range ng.Members {
+		if member.GID == groupMember.GID {
+			ng.Members = append(ng.Members[:i], ng.Members[i+1:]...)
+		}
+	}
+}
+
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, exists := gl.CheckGroup(groupName)
 	if exists {
 		return fmt.Sprintf("Group %q seems to already exist. If you'd like to remove and recreate the group please say \"@HGNotify delete %s\" followed by \"@HGNotify create %s @Members...\"", groupName, groupName, groupName)
 	}
 
-	mentions := msgObj.Message.Mentions
-	newGroup := new(namedGroup)
+	var (
+		mentions   = msgObj.Message.Mentions
+		newGroup   = new(namedGroup)
+		newMembers string
+
+		seen = checkSeen()
+	)
+
 	newGroup.Name = groupName
 
-	var newMembers string
 	for i, mention := range mentions {
+		if seen(mention.Called.Name) {
+			continue
+		}
+
 		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
 			if i > 1 {
 				newMembers += ","
@@ -69,7 +86,7 @@ func (gl GroupList) Delete(groupName string) string {
 	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
 
-func (gl GroupList) AddMember(groupName string, msgObj messageResponse) string {
+func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
 	saveName, exists := gl.CheckGroup(groupName)
 	if !exists {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
@@ -79,9 +96,15 @@ func (gl GroupList) AddMember(groupName string, msgObj messageResponse) string {
 		addedMembers    string
 		existingMembers string
 		text            string
+
+		seen = checkSeen()
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
+		if seen(mention.Called.Name) {
+			continue
+		}
+
 		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
 			exist := gl.CheckMember(groupName, mention.Called.GID)
 
@@ -100,7 +123,50 @@ func (gl GroupList) AddMember(groupName string, msgObj messageResponse) string {
 	}
 
 	if existingMembers != "" {
-		text += fmt.Sprintf("User(s) [ %s] previously added the group %q. ", existingMembers, groupName)
+		text += fmt.Sprintf("\nUser(s) [ %s] already added the group %q. ", existingMembers, groupName)
+	}
+
+	return text
+}
+
+func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
+	saveName, exists := gl.CheckGroup(groupName)
+	if !exists {
+		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	}
+
+	var (
+		removedMembers     string
+		nonExistantMembers string
+		text               string
+
+		seen = checkSeen()
+	)
+
+	for _, mention := range msgObj.Message.Mentions {
+		if seen(mention.Called.Name) {
+			continue
+		}
+
+		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
+			exist := gl.CheckMember(groupName, mention.Called.GID)
+
+			if exist {
+				gl[saveName].removeMember(mention.Called.User)
+
+				removedMembers += mention.Called.Name + " "
+			} else {
+				nonExistantMembers += mention.Called.Name + " "
+			}
+		}
+	}
+
+	if removedMembers != "" {
+		text += fmt.Sprintf("I've removed [ %s] from %q. ", removedMembers, groupName)
+	}
+
+	if nonExistantMembers != "" {
+		text += fmt.Sprintf("\nUser(s) [ %s] didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
 	}
 
 	return text
@@ -127,8 +193,13 @@ func (gl GroupList) CheckGroup(groupName string) (saveName string, here bool) {
 }
 
 func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
-	here = true
 	saveName := strings.ToLower(groupName)
+
+	if len(gl[saveName].Members) == 0 {
+		here = false
+	} else {
+		here = true
+	}
 
 	for _, member := range gl[saveName].Members {
 		if memberID == member.GID {
@@ -140,4 +211,19 @@ func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
 	}
 
 	return
+}
+
+func checkSeen() func(name string) bool {
+	var seenMembers []string
+
+	return func(name string) bool {
+		for _, seenMember := range seenMembers {
+			if seenMember == name {
+				return true
+			}
+		}
+
+		seenMembers = append(seenMembers, name)
+		return false
+	}
 }

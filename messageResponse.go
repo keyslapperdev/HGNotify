@@ -103,9 +103,9 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "delete":
 		retMsg = Groups.Delete(args["groupName"])
 	case "add":
-		retMsg = Groups.AddMember(args["groupName"], msgObj)
+		retMsg = Groups.AddMembers(args["groupName"], msgObj)
 	case "remove":
-		retMsg = "Received Call to " + args["action"]
+		retMsg = Groups.RemoveMembers(args["groupName"], msgObj)
 	case "notify":
 		retMsg = "Received Call to " + args["action"]
 	case "list":
