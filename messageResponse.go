@@ -27,6 +27,11 @@ type messageResponse struct {
 
 		Text string `json:"text"`
 	} `json:"message"`
+
+	Room struct {
+		GID  string `json:"name"`
+		Name string `json:"displayName"`
+	} `json:"space"`
 }
 
 func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
@@ -77,7 +82,7 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			if i == pu+1 {
 				args["groupName"], ok = Groups.CheckGroup(v)
 				if !ok {
-					msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"@HGNotify create %s\".", v, v)
+					msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"%s create %s\".", v, BOTNAME, v)
 				}
 				break
 			}

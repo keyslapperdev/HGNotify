@@ -79,7 +79,7 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		jsonResp, e = json.Marshal(resp)
 	}
 
-	//describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
+	describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
 	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 

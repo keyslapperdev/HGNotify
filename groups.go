@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/go-yaml/yaml"
 )
 
 type (
@@ -12,20 +12,19 @@ type (
 )
 
 type namedGroup struct {
-	//    ID      uint     `json:"id"`
-	Name    string `json:"groupName"`
-	Members []struct {
-		Name string `json:"memberName"`
-		GID  string `json:"gchatID"`
-	} `json:"Members"`
-	Origin string `json:"homeRoom"`
+	ID      uint     `json:"id" yaml:"id"`
+	Name    string   `json:"groupName" yaml:"groupName"`
+	Members []Member `json:"members" yaml:"members"`
+	Origin  string   `json:"homeRoom" yaml:"homeRoom"`
+}
+
+type Member struct {
+	Name string `json:"memberName" yaml:"memberName"`
+	GID  string `json:"gchatID" yaml:"gchatID"`
 }
 
 func (ng *namedGroup) addMember(member User) {
-	addition := struct {
-		Name string `json:"memberName"`
-		GID  string `json:"gchatID"`
-	}{
+	addition := Member{
 		Name: member.Name,
 		GID:  member.GID,
 	}
@@ -44,7 +43,7 @@ func (ng *namedGroup) removeMember(member User) {
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, exists := gl.CheckGroup(groupName)
 	if exists {
-		return fmt.Sprintf("Group %q seems to already exist. If you'd like to remove and recreate the group please say \"@HGNotify delete %s\" followed by \"@HGNotify create %s @Members...\"", groupName, groupName, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
 	}
 
 	var (
@@ -56,6 +55,8 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	)
 
 	newGroup.Name = groupName
+	newGroup.ID = gl.getID()
+	//newGroup.Origin = msgObj.
 
 	for i, mention := range mentions {
 		if seen(mention.Called.Name) {
@@ -174,10 +175,27 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 
 func (gl GroupList) List(groupName string) string {
 	if groupName == "" {
-		return spew.Sprintf("Structure of all stored groups: ```%v```", gl)
+		if len(gl) == 0 {
+			return fmt.Sprint("There are no groups to show currently. :(")
+		}
+
+		var allGroupNames string
+		for name := range gl {
+			allGroupNames += " | " + gl[name].Name
+		}
+
+		return fmt.Sprintf("Here are all of the groups here: ```%s``` Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
 	}
 
-	return spew.Sprintf("Structure of requested group %q: ```%v```", groupName, gl[strings.ToLower(groupName)])
+	saveName, exists := gl.CheckGroup(groupName)
+	if !exists {
+		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	}
+
+	yamlList, err := yaml.Marshal(gl[saveName])
+	checkError(err)
+
+	return fmt.Sprintf("Here are details for %q: ```%v```", groupName, string(yamlList))
 }
 
 func (gl GroupList) CheckGroup(groupName string) (saveName string, here bool) {
@@ -211,6 +229,23 @@ func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
 	}
 
 	return
+}
+
+func (gl GroupList) getID() uint {
+	describe("gl len: %v\ngl: %+v\n", len(gl), gl)
+	if len(gl) == 0 {
+		return uint(1)
+	}
+
+	id := uint(0)
+	for _, group := range gl {
+		temp := group.ID
+		if temp > id {
+			id = temp + 1
+		}
+	}
+
+	return id
 }
 
 func checkSeen() func(name string) bool {
