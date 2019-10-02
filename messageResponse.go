@@ -56,7 +56,8 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "remove" &&
 			option != "delete" &&
 			option != "list" &&
-			option != "usage" {
+			option != "usage" &&
+			option != "help" {
 			msg = fmt.Sprintf("Invalid option received, %q. Full Message: %q", tempArgs[1], mr.Message.Text)
 			ok = false
 		} else {
@@ -80,10 +81,7 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			}
 
 			if i == pu+1 {
-				args["groupName"], ok = Groups.CheckGroup(v)
-				if !ok {
-					msg = fmt.Sprintf("Group %q doesn't seem to exist yet, try initializing it with \"%s create %s\".", v, BOTNAME, v)
-				}
+				args["groupName"] = v
 				break
 			}
 		}
@@ -112,10 +110,12 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "remove":
 		retMsg = Groups.RemoveMembers(args["groupName"], msgObj)
 	case "notify":
-		retMsg = "Received Call to " + args["action"]
+		retMsg = Groups.Notify(args["groupName"], msgObj)
 	case "list":
 		retMsg = Groups.List(args["groupName"])
 	case "usage":
+		retMsg = usage()
+	case "help":
 		retMsg = usage()
 	default:
 		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."

@@ -173,6 +173,44 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	return text
 }
 
+func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
+	saveName, exists := gl.CheckGroup(groupName)
+	if !exists {
+		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	}
+
+	var memberList string
+	for _, member := range gl[saveName].Members {
+		memberList += "<" + member.GID + "> "
+	}
+
+	message := msgObj.Message.Text
+
+	botLen := len(BOTNAME)
+	botIndex := strings.Index(message, BOTNAME)
+
+	tmpMessage := string([]byte(message)[botLen+botIndex:])
+
+	groupLen := len(groupName)
+	groupIndex := strings.Index(tmpMessage, groupName)
+
+	newMessage := fmt.Sprintf("%s said:\n\n%s",
+		msgObj.Message.Sender.Name,
+		strings.Replace(
+			message,
+			string([]byte(message)[botIndex:botIndex+botLen+groupIndex+groupLen]),
+			memberList,
+			1,
+		),
+	)
+
+	if len(newMessage) >= 4000 {
+		return "My apologies, your message with the group added would exceed Google Chat's character limit. :("
+	}
+
+	return newMessage
+}
+
 func (gl GroupList) List(groupName string) string {
 	if groupName == "" {
 		if len(gl) == 0 {
@@ -232,16 +270,15 @@ func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
 }
 
 func (gl GroupList) getID() uint {
-	describe("gl len: %v\ngl: %+v\n", len(gl), gl)
 	if len(gl) == 0 {
 		return uint(1)
 	}
 
 	id := uint(0)
 	for _, group := range gl {
-		temp := group.ID
-		if temp > id {
-			id = temp + 1
+		highestID := group.ID
+		if highestID > id {
+			id = highestID + 1
 		}
 	}
 
