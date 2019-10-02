@@ -55,32 +55,31 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "add" &&
 			option != "remove" &&
 			option != "delete" &&
+			option != "restrict" &&
 			option != "list" &&
 			option != "usage" &&
 			option != "help" {
-			msg = fmt.Sprintf("Invalid option received, %q. Full Message: %q", tempArgs[1], mr.Message.Text)
+			msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1], mr.Message.Text)
 			ok = false
 		} else {
 			args["action"] = option
 
-			if option != "usage" {
-				if nArgs < 3 {
-					args["groupName"] = ""
-				} else {
-					args["groupName"] = tempArgs[2]
-				}
+			if nArgs < 3 {
+				args["groupName"] = ""
+			} else {
+				args["groupName"] = tempArgs[2]
 			}
 		}
 	} else {
 		args["action"] = "notify"
-		pu := 100000
+		gi := 100000
 
 		for i, v := range tempArgs {
 			if v == BOTNAME {
-				pu = i
+				gi = i
 			}
 
-			if i == pu+1 {
+			if i == gi+1 {
 				args["groupName"] = v
 				break
 			}
@@ -102,21 +101,35 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 
 	switch args["action"] {
 	case "create":
-		retMsg = Groups.Create(args["groupName"], msgObj)
+		if args["groupName"] == "" {
+			retMsg = fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
+		} else {
+			retMsg = Groups.Create(args["groupName"], msgObj)
+		}
 	case "delete":
-		retMsg = Groups.Delete(args["groupName"])
+		if args["groupName"] == "" {
+			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("delete"))
+		} else {
+			retMsg = Groups.Delete(args["groupName"], msgObj)
+		}
 	case "add":
 		retMsg = Groups.AddMembers(args["groupName"], msgObj)
 	case "remove":
 		retMsg = Groups.RemoveMembers(args["groupName"], msgObj)
+	case "restrict":
+		if args["groupName"] == "" {
+			retMsg = fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
+		} else {
+			retMsg = Groups.Restrict(args["groupName"], msgObj)
+		}
 	case "notify":
 		retMsg = Groups.Notify(args["groupName"], msgObj)
 	case "list":
-		retMsg = Groups.List(args["groupName"])
+		retMsg = Groups.List(args["groupName"], msgObj)
 	case "usage":
-		retMsg = usage()
+		retMsg = usage("")
 	case "help":
-		retMsg = usage()
+		retMsg = usage("")
 	default:
 		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
 	}

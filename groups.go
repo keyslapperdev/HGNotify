@@ -12,10 +12,11 @@ type (
 )
 
 type namedGroup struct {
-	ID      uint     `json:"id" yaml:"id"`
-	Name    string   `json:"groupName" yaml:"groupName"`
-	Members []Member `json:"members" yaml:"members"`
-	Origin  string   `json:"homeRoom" yaml:"homeRoom"`
+	ID            uint     `json:"id" yaml:"id"`
+	Name          string   `json:"groupName" yaml:"groupName"`
+	Members       []Member `json:"members" yaml:"members"`
+	isPrivate     bool
+	privacyRoomID string
 }
 
 type Member struct {
@@ -41,9 +42,11 @@ func (ng *namedGroup) removeMember(member User) {
 }
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
-	saveName, exists := gl.CheckGroup(groupName)
-	if exists {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if meta != "" {
+		if strings.Contains(meta, "exist") {
+			return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
+		}
 	}
 
 	var (
@@ -56,7 +59,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 
 	newGroup.Name = groupName
 	newGroup.ID = gl.getID()
-	//newGroup.Origin = msgObj.
+	newGroup.isPrivate = false
 
 	for i, mention := range mentions {
 		if seen(mention.Called.Name) {
@@ -77,10 +80,16 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Created group %q with user(s) %s", groupName, newMembers)
 }
 
-func (gl GroupList) Delete(groupName string) string {
-	saveName, exists := gl.CheckGroup(groupName)
-	if !exists {
-		return fmt.Sprintf("Group %q doesn't seem to exist to be deleted.", groupName)
+func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if meta != "" {
+		if !strings.Contains(meta, "exist") {
+			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+		}
+
+		if strings.Contains(meta, "private") {
+			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
+		}
 	}
 
 	delete(gl, saveName)
@@ -88,9 +97,15 @@ func (gl GroupList) Delete(groupName string) string {
 }
 
 func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
-	saveName, exists := gl.CheckGroup(groupName)
-	if !exists {
-		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if meta != "" {
+		if !strings.Contains(meta, "exist") {
+			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+		}
+
+		if strings.Contains(meta, "private") {
+			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
+		}
 	}
 
 	var (
@@ -131,9 +146,15 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 }
 
 func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
-	saveName, exists := gl.CheckGroup(groupName)
-	if !exists {
-		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if meta != "" {
+		if !strings.Contains(meta, "exist") {
+			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+		}
+
+		if strings.Contains(meta, "private") {
+			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
+		}
 	}
 
 	var (
@@ -173,10 +194,36 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	return text
 }
 
+func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
+
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
+	}
+
+	if gl[saveName].isPrivate {
+		gl[saveName].isPrivate = false
+		gl[saveName].privacyRoomID = ""
+
+		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
+	}
+
+	gl[saveName].isPrivate = true
+	gl[saveName].privacyRoomID = msgObj.Room.GID
+	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
+}
+
 func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
-	saveName, exists := gl.CheckGroup(groupName)
-	if !exists {
-		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
+
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not use it.", groupName)
 	}
 
 	var memberList string
@@ -211,7 +258,7 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 	return newMessage
 }
 
-func (gl GroupList) List(groupName string) string {
+func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 	if groupName == "" {
 		if len(gl) == 0 {
 			return fmt.Sprint("There are no groups to show currently. :(")
@@ -219,30 +266,47 @@ func (gl GroupList) List(groupName string) string {
 
 		var allGroupNames string
 		for name := range gl {
-			allGroupNames += " | " + gl[name].Name
+			_, meta := gl.CheckGroup(name, msgObj)
+			if !strings.Contains(meta, "private") {
+				allGroupNames += " | " + gl[name].Name
+			}
 		}
 
-		return fmt.Sprintf("Here are all of the groups here: ```%s``` Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
+		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
 	}
 
-	saveName, exists := gl.CheckGroup(groupName)
-	if !exists {
-		return fmt.Sprintf("The group %q does not seem to exist.", groupName)
+	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	if meta != "" {
+		if !strings.Contains(meta, "exist") {
+			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+		}
+
+		if strings.Contains(meta, "private") {
+			return fmt.Sprintf("The group %q is private, and you may not view it.", groupName)
+		}
 	}
 
 	yamlList, err := yaml.Marshal(gl[saveName])
 	checkError(err)
 
-	return fmt.Sprintf("Here are details for %q: ```%v```", groupName, string(yamlList))
+	return fmt.Sprintf("Here are details for %q: ```%s```", groupName, string(yamlList))
 }
 
-func (gl GroupList) CheckGroup(groupName string) (saveName string, here bool) {
+func (gl GroupList) CheckGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
 	//TODO: Check for proper formatting
-	here = true
 	saveName = strings.ToLower(groupName)
+	group, exist := gl[saveName]
 
-	if _, exist := gl[saveName]; !exist {
-		here = false
+	if exist {
+		meta += "exist"
+	} else {
+		return
+	}
+
+	if group.isPrivate {
+		if group.privacyRoomID != msgObj.Room.GID {
+			meta += "private"
+		}
 	}
 
 	return
