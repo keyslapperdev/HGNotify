@@ -59,7 +59,7 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "list" &&
 			option != "usage" &&
 			option != "help" {
-			msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1], mr.Message.Text)
+			msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1])
 			ok = false
 		} else {
 			args["action"] = option

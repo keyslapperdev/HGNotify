@@ -79,7 +79,7 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		jsonResp, e = json.Marshal(resp)
 	}
 
-	describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
+	//describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
 	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 
@@ -152,7 +152,7 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
 
   Notes
     - Group Names are case insensative.
-    - Group Names can contain letters, numbers, underscores, and dashes
+    - Group Names can contain letters, numbers, underscores, and dashes maximum length is 40 characters (^[a-zA-Z0-9_-]{,40}$)
     - When managing groups, "@HGNotify" must be the first thing in the messages
     - When notifying a group the text "@HGNotify GroupName" will be replaced with the members of the group. Just a heads up, so be sure to place that where you'd like it to appear.
 

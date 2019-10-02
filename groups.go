@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-yaml/yaml"
@@ -44,6 +45,11 @@ func (ng *namedGroup) removeMember(member User) {
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
 	if meta != "" {
+		describe("meta: %+v\n", meta)
+		if !strings.Contains(meta, "name") {
+			return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
+		}
+
 		if strings.Contains(meta, "exist") {
 			return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
 		}
@@ -82,14 +88,12 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 
 func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
-	if meta != "" {
-		if !strings.Contains(meta, "exist") {
-			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
-		}
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
 
-		if strings.Contains(meta, "private") {
-			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
-		}
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
 	delete(gl, saveName)
@@ -98,14 +102,12 @@ func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
 
 func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
-	if meta != "" {
-		if !strings.Contains(meta, "exist") {
-			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
-		}
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
 
-		if strings.Contains(meta, "private") {
-			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
-		}
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
 	var (
@@ -147,14 +149,12 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 
 func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
-	if meta != "" {
-		if !strings.Contains(meta, "exist") {
-			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
-		}
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
 
-		if strings.Contains(meta, "private") {
-			return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
-		}
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
 	var (
@@ -227,6 +227,7 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 	}
 
 	var memberList string
+	//TODO: Check if users are in the room before adding them to list
 	for _, member := range gl[saveName].Members {
 		memberList += "<" + member.GID + "> "
 	}
@@ -294,9 +295,18 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 
 func (gl GroupList) CheckGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
 	//TODO: Check for proper formatting
+	match, err := regexp.Match(`^[a-zA-Z0-9_-]{,40}$`, []byte(groupName))
+	checkError(err)
+
+	if match {
+		meta += "name"
+		return
+	}
+
 	saveName = strings.ToLower(groupName)
 	group, exist := gl[saveName]
 
+	describe("GroupName: %v\nExist: %v\n", saveName, exist)
 	if exist {
 		meta += "exist"
 	} else {
