@@ -13,3 +13,7 @@ func checkError(e error) {
 func describe(msg string, v ...interface{}) {
 	spew.Printf(msg, v...)
 }
+
+func Spew(v ...interface{}) {
+	spew.Dump(v...)
+}

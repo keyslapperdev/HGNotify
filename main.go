@@ -22,12 +22,15 @@ type (
 )
 
 var Groups = make(GroupList)
+var DBLogger = startDBLogger()
 
 func main() {
+	setupTables(DBLogger)
+	getGroupsFromDB(DBLogger, Groups)
+
 	fmt.Println("Running!! on port " + PORT)
 
 	http.HandleFunc("/", theHandler)
-
 	e := http.ListenAndServeTLS(PORT, CERT, KEY, nil)
 	checkError(e)
 }

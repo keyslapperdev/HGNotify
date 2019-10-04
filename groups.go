@@ -6,26 +6,29 @@ import (
 	"strings"
 
 	"github.com/go-yaml/yaml"
+	"github.com/jinzhu/gorm"
 )
 
 type (
-	GroupList map[string]*namedGroup
+	GroupList map[string]*Group
 )
 
-type namedGroup struct {
-	ID            uint     `json:"id" yaml:"id"`
-	Name          string   `json:"groupName" yaml:"groupName"`
-	Members       []Member `json:"members" yaml:"members"`
-	isPrivate     bool
-	privacyRoomID string
+type Group struct {
+	gorm.Model    `yaml:"-"`
+	Name          string   `yaml:"groupName"`
+	Members       []Member `yaml:"members" gorm:"foreignkey:GroupID"`
+	IsPrivate     bool     `yaml:"private"`
+	PrivacyRoomID string   `yaml:"-"`
 }
 
 type Member struct {
-	Name string `json:"memberName" yaml:"memberName"`
-	GID  string `json:"gchatID" yaml:"gchatID"`
+	gorm.Model `yaml:"-"`
+	GroupID    uint   `yaml:"-"`
+	Name       string `yaml:"memberName"`
+	GID        string `yaml:"gchatID"`
 }
 
-func (ng *namedGroup) addMember(member User) {
+func (ng *Group) addMember(member User) {
 	addition := Member{
 		Name: member.Name,
 		GID:  member.GID,
@@ -34,7 +37,7 @@ func (ng *namedGroup) addMember(member User) {
 	ng.Members = append(ng.Members, addition)
 }
 
-func (ng *namedGroup) removeMember(member User) {
+func (ng *Group) removeMember(member User) {
 	for i, groupMember := range ng.Members {
 		if member.GID == groupMember.GID {
 			ng.Members = append(ng.Members[:i], ng.Members[i+1:]...)
@@ -44,28 +47,25 @@ func (ng *namedGroup) removeMember(member User) {
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
-	if meta != "" {
-		describe("meta: %+v\n", meta)
-		if !strings.Contains(meta, "name") {
-			return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
-		}
+	describe("meta: %+v\n", meta)
+	if !strings.Contains(meta, "name") {
+		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
+	}
 
-		if strings.Contains(meta, "exist") {
-			return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
-		}
+	if strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
 	}
 
 	var (
 		mentions   = msgObj.Message.Mentions
-		newGroup   = new(namedGroup)
+		newGroup   = new(Group)
 		newMembers string
 
 		seen = checkSeen()
 	)
 
 	newGroup.Name = groupName
-	newGroup.ID = gl.getID()
-	newGroup.isPrivate = false
+	newGroup.IsPrivate = false
 
 	for i, mention := range mentions {
 		if seen(mention.Called.Name) {
@@ -82,8 +82,15 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		}
 	}
 
+	if len(newMembers) == 0 {
+		newMembers = "no users."
+	} else {
+		newMembers = "with user(s) " + newMembers
+	}
+
+	go saveCreatedGroup(DBLogger, newGroup)
 	gl[saveName] = newGroup
-	return fmt.Sprintf("Created group %q with user(s) %s", groupName, newMembers)
+	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
 }
 
 func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
@@ -204,15 +211,15 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
-	if gl[saveName].isPrivate {
-		gl[saveName].isPrivate = false
-		gl[saveName].privacyRoomID = ""
+	if gl[saveName].IsPrivate {
+		gl[saveName].IsPrivate = false
+		gl[saveName].PrivacyRoomID = ""
 
 		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
 	}
 
-	gl[saveName].isPrivate = true
-	gl[saveName].privacyRoomID = msgObj.Room.GID
+	gl[saveName].IsPrivate = true
+	gl[saveName].PrivacyRoomID = msgObj.Room.GID
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
@@ -294,27 +301,26 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 }
 
 func (gl GroupList) CheckGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
-	//TODO: Check for proper formatting
-	match, err := regexp.Match(`^[a-zA-Z0-9_-]{,40}$`, []byte(groupName))
+	match, err := regexp.Match(`^[\w-]{0,40}$`, []byte(groupName))
 	checkError(err)
 
 	if match {
 		meta += "name"
+	} else {
 		return
 	}
 
 	saveName = strings.ToLower(groupName)
 	group, exist := gl[saveName]
 
-	describe("GroupName: %v\nExist: %v\n", saveName, exist)
 	if exist {
 		meta += "exist"
 	} else {
 		return
 	}
 
-	if group.isPrivate {
-		if group.privacyRoomID != msgObj.Room.GID {
+	if group.IsPrivate {
+		if group.PrivacyRoomID != msgObj.Room.GID {
 			meta += "private"
 		}
 	}
