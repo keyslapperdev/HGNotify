@@ -24,12 +24,23 @@ func saveCreatedGroup(db *gorm.DB, group *Group) {
 	db.Create(group)
 }
 
-func updateGroup(db *gorm.DB, group *Group) {
-	db.Model(group).Update(group)
+func disbandGroup(db *gorm.DB, group *Group) {
+	db.Unscoped().Delete(group)
+}
+
+func updatePrivacyDB(db *gorm.DB, group *Group) {
+	db.Model(group).Select("is_private").Update("IsPrivate", group.IsPrivate)
+	db.Model(group).Select("privacy_room_id").Update("PrivacyRoomID", group.PrivacyRoomID)
 }
 
 func saveGroupAddition(db *gorm.DB, group *Group) {
-	updateGroup(db, group)
+	db.Model(group).Update(group)
+}
+
+func saveMemberRemoval(db *gorm.DB, group *Group, members []Member) {
+	for _, member := range members {
+		db.Model(group).Delete(member)
+	}
 }
 
 func getGroupsFromDB(db *gorm.DB, groupList GroupList) {

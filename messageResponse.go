@@ -54,7 +54,7 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		if option != "create" &&
 			option != "add" &&
 			option != "remove" &&
-			option != "delete" &&
+			option != "disband" &&
 			option != "restrict" &&
 			option != "list" &&
 			option != "usage" &&
@@ -106,11 +106,11 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		} else {
 			retMsg = Groups.Create(args["groupName"], msgObj)
 		}
-	case "delete":
+	case "disband":
 		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("delete"))
+			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
 		} else {
-			retMsg = Groups.Delete(args["groupName"], msgObj)
+			retMsg = Groups.Disband(args["groupName"], msgObj)
 		}
 	case "add":
 		retMsg = Groups.AddMembers(args["groupName"], msgObj)

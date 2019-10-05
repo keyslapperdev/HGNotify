@@ -37,12 +37,15 @@ func (ng *Group) addMember(member User) {
 	ng.Members = append(ng.Members, addition)
 }
 
-func (ng *Group) removeMember(member User) {
+func (ng *Group) removeMember(member User) (removed Member) {
 	for i, groupMember := range ng.Members {
 		if member.GID == groupMember.GID {
+			removed = groupMember
 			ng.Members = append(ng.Members[:i], ng.Members[i+1:]...)
 		}
 	}
+
+	return
 }
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
@@ -57,7 +60,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	}
 
 	if strings.Contains(meta, "exist") {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s delete %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
 	}
 
 	var (
@@ -115,7 +118,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Created group %q %s.", groupName, newMembers)
 }
 
-func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
+func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.CheckGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
@@ -125,6 +128,7 @@ func (gl GroupList) Delete(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
+	go disbandGroup(DBLogger, gl[saveName])
 	delete(gl, saveName)
 	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
@@ -171,38 +175,42 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 		}
 	}
 
-	switch added {
-	case 1:
-		addedMembers = "the user " + addedMembers
-	case 2:
-		addedMembers = "the users " + addedMembers
-		foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen-2]
-		afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
+	if added > 0 {
+		switch added {
+		case 1:
+			addedMembers = "the user " + addedMembers
+		case 2:
+			addedMembers = "the users " + addedMembers
+			foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen-2]
+			afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
 
-		addedMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
-	default:
-		addedMembers = "the users " + addedMembers
-		foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen]
-		afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
+			addedMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
+		default:
+			addedMembers = "the users " + addedMembers
+			foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen]
+			afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
 
-		addedMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
+			addedMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
+		}
 	}
 
-	switch existing {
-	case 1:
-		existingMembers = "The user " + existingMembers
-	case 2:
-		existingMembers = "The users " + existingMembers
-		foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen-2]
-		afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
+	if existing > 0 {
+		switch existing {
+		case 1:
+			existingMembers = "The user " + existingMembers
+		case 2:
+			existingMembers = "The users " + existingMembers
+			foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen-2]
+			afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
 
-		existingMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
-	default:
-		existingMembers = "The users " + existingMembers
-		foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen]
-		afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
+			existingMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
+		default:
+			existingMembers = "The users " + existingMembers
+			foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen]
+			afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
 
-		existingMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
+			existingMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
+		}
 	}
 
 	if addedMembers != "" {
@@ -228,7 +236,9 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	}
 
 	var (
-		removedMembers     string
+		removedMembers    string
+		membersToRemoveDB []Member
+
 		nonExistantMembers string
 		text               string
 
@@ -244,7 +254,10 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 			exist := gl.CheckMember(groupName, mention.Called.GID)
 
 			if exist {
-				gl[saveName].removeMember(mention.Called.User)
+				membersToRemoveDB = append(
+					membersToRemoveDB,
+					gl[saveName].removeMember(mention.Called.User),
+				)
 
 				removedMembers += mention.Called.Name + " "
 			} else {
@@ -254,6 +267,7 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	}
 
 	if removedMembers != "" {
+		go saveMemberRemoval(DBLogger, gl[saveName], membersToRemoveDB)
 		text += fmt.Sprintf("I've removed [ %s] from %q. ", removedMembers, groupName)
 	}
 
@@ -278,11 +292,14 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 		gl[saveName].IsPrivate = false
 		gl[saveName].PrivacyRoomID = ""
 
+		go updatePrivacyDB(DBLogger, gl[saveName])
 		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
 	}
 
 	gl[saveName].IsPrivate = true
 	gl[saveName].PrivacyRoomID = msgObj.Room.GID
+
+	go updatePrivacyDB(DBLogger, gl[saveName])
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
@@ -416,22 +433,6 @@ func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
 	}
 
 	return
-}
-
-func (gl GroupList) getID() uint {
-	if len(gl) == 0 {
-		return uint(1)
-	}
-
-	id := uint(0)
-	for _, group := range gl {
-		highestID := group.ID
-		if highestID > id {
-			id = highestID + 1
-		}
-	}
-
-	return id
 }
 
 func checkSeen() func(name string) bool {

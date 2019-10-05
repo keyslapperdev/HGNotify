@@ -93,8 +93,8 @@ func usage(option string) string {
     create groupName mentions
       Create a group containing mentioned members. While I'm not sure why you would, you can initialize an empty group.`
 
-	options["delete"] = `
-    delete groupName
+	options["disband"] = `
+    disband groupName
       Delete a group. CAUTION: This can be done to a group containing members. I'd recommend only using delete when necessary.`
 
 	options["add"] = `
@@ -141,7 +141,7 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
 
     Removing a group member: "@HGNotify remove HG6 @Robert Stone"
 
-    Delete a group: "@HGNotify delete Umbrella"
+    Delete a group: "@HGNotify disband Umbrella"
 
   Options
 %s
@@ -164,7 +164,7 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
 		options["create"],
 		options["add"],
 		options["remove"],
-		options["delete"],
+		options["disband"],
 		options["restrict"],
 		options["list"],
 		options["notify"],
