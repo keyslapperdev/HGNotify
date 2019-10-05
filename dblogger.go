@@ -17,11 +17,19 @@ func startDBLogger() (db *gorm.DB) {
 
 func setupTables(db *gorm.DB) {
 	db.AutoMigrate(&Group{}, &Member{})
-	db.Model(&Member{}).AddForeignKey("group_id", "groups(id)", "CASCADE", "CASCADE")
+	db.Model(&Member{}).AddForeignKey("group_id", "groups(id)", "CASCADE", "RESTRICT")
 }
 
-func saveCreatedGroup(db *gorm.DB, ng *Group) {
-	db.Create(ng)
+func saveCreatedGroup(db *gorm.DB, group *Group) {
+	db.Create(group)
+}
+
+func updateGroup(db *gorm.DB, group *Group) {
+	db.Model(group).Update(group)
+}
+
+func saveGroupAddition(db *gorm.DB, group *Group) {
+	updateGroup(db, group)
 }
 
 func getGroupsFromDB(db *gorm.DB, groupList GroupList) {
