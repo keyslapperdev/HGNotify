@@ -21,13 +21,18 @@ type (
 	Arguments   map[string]string
 )
 
-var Groups = make(GroupList)
+var (
+	Groups = make(GroupList)
+	Logger = startDBLogger()
+)
 
 func main() {
+	Logger.SetupTables()
+	Logger.GetGroupsFromDB(Groups)
+
 	fmt.Println("Running!! on port " + PORT)
 
 	http.HandleFunc("/", theHandler)
-
 	e := http.ListenAndServeTLS(PORT, CERT, KEY, nil)
 	checkError(e)
 }
@@ -57,6 +62,8 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 	case "MESSAGE":
 		e = json.Unmarshal(jsonReq, &msgObj)
 		checkError(e)
+
+		go Logger.CreateLogEntry(msgObj)
 
 		var msg string
 		resMsg, errMsg, ok := inspectMessage(msgObj)
@@ -90,8 +97,8 @@ func usage(option string) string {
     create groupName mentions
       Create a group containing mentioned members. While I'm not sure why you would, you can initialize an empty group.`
 
-	options["delete"] = `
-    delete groupName
+	options["disband"] = `
+    disband groupName
       Delete a group. CAUTION: This can be done to a group containing members. I'd recommend only using delete when necessary.`
 
 	options["add"] = `
@@ -138,7 +145,7 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
 
     Removing a group member: "@HGNotify remove HG6 @Robert Stone"
 
-    Delete a group: "@HGNotify delete Umbrella"
+    Delete a group: "@HGNotify disband Umbrella"
 
   Options
 %s
@@ -161,7 +168,7 @@ Usage: @HGNotify [options] [GroupName] [mentions...]
 		options["create"],
 		options["add"],
 		options["remove"],
-		options["delete"],
+		options["disband"],
 		options["restrict"],
 		options["list"],
 		options["notify"],

@@ -14,7 +14,6 @@ type User struct {
 type messageResponse struct {
 	Message struct {
 		Sender struct {
-			GID  string `json:"name"`
 			Name string `json:"displayName"`
 		} `json:"sender"`
 
@@ -32,6 +31,8 @@ type messageResponse struct {
 		GID  string `json:"name"`
 		Name string `json:"displayName"`
 	} `json:"space"`
+
+	Time string `json:"eventTime"`
 }
 
 func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
@@ -54,13 +55,18 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		if option != "create" &&
 			option != "add" &&
 			option != "remove" &&
-			option != "delete" &&
+			option != "disband" &&
 			option != "restrict" &&
 			option != "list" &&
 			option != "usage" &&
 			option != "help" {
-			msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1])
-			ok = false
+			if isGroup(tempArgs[1]) {
+				args["action"] = "notify"
+				args["groupName"] = tempArgs[1]
+			} else {
+				msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1])
+				ok = false
+			}
 		} else {
 			args["action"] = option
 
@@ -72,6 +78,9 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		}
 	} else {
 		args["action"] = "notify"
+	}
+
+	if args["action"] == "notify" {
 		gi := 100000
 
 		for i, v := range tempArgs {
@@ -106,11 +115,11 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		} else {
 			retMsg = Groups.Create(args["groupName"], msgObj)
 		}
-	case "delete":
+	case "disband":
 		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("delete"))
+			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
 		} else {
-			retMsg = Groups.Delete(args["groupName"], msgObj)
+			retMsg = Groups.Disband(args["groupName"], msgObj)
 		}
 	case "add":
 		retMsg = Groups.AddMembers(args["groupName"], msgObj)
