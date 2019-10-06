@@ -59,8 +59,13 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "list" &&
 			option != "usage" &&
 			option != "help" {
-			msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1])
-			ok = false
+			if isGroup(tempArgs[1]) {
+				args["action"] = "notify"
+				args["groupName"] = tempArgs[1]
+			} else {
+				msg = fmt.Sprintf("Invalid option received. I'm not sure what to do about %q.", tempArgs[1])
+				ok = false
+			}
 		} else {
 			args["action"] = option
 
@@ -72,6 +77,9 @@ func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		}
 	} else {
 		args["action"] = "notify"
+	}
+
+	if args["action"] == "notify" {
 		gi := 100000
 
 		for i, v := range tempArgs {

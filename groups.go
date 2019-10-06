@@ -49,7 +49,7 @@ func (ng *Group) removeMember(member User) (removed Member) {
 }
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	describe("meta: %+v\n", meta)
 	if !strings.Contains(meta, "name") {
 		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
@@ -113,13 +113,13 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		newMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
 	}
 
-	go saveCreatedGroup(DBLogger, newGroup)
+	go Logger.SaveCreatedGroup(newGroup)
 	gl[saveName] = newGroup
 	return fmt.Sprintf("Created group %q %s.", groupName, newMembers)
 }
 
 func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -128,13 +128,13 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
-	go disbandGroup(DBLogger, gl[saveName])
+	go Logger.DisbandGroup(gl[saveName])
 	delete(gl, saveName)
 	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
 
 func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -161,7 +161,7 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 		}
 
 		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.CheckMember(groupName, mention.Called.GID)
+			exist := gl.checkMember(groupName, mention.Called.GID)
 
 			if !exist {
 				added++
@@ -173,6 +173,10 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 				existingMembers += mention.Called.Name + " "
 			}
 		}
+	}
+
+	if added == 0 && existing == 0 {
+		return "No users to add. Please @ the member you'd like to add to the group."
 	}
 
 	if added > 0 {
@@ -192,6 +196,9 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 
 			addedMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
 		}
+
+		go Logger.SaveMemberAddition(gl[saveName])
+		text += fmt.Sprintf("I've added %s to the group %q.", addedMembers, groupName)
 	}
 
 	if existing > 0 {
@@ -211,14 +218,7 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 
 			existingMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
 		}
-	}
 
-	if addedMembers != "" {
-		go saveGroupAddition(DBLogger, gl[saveName])
-		text += fmt.Sprintf("I've added %s to the group %q.", addedMembers, groupName)
-	}
-
-	if existingMembers != "" {
 		text += fmt.Sprintf("\n%s already added the group %q. ", existingMembers, groupName)
 	}
 
@@ -226,7 +226,7 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 }
 
 func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -236,11 +236,12 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	}
 
 	var (
-		removedMembers    string
+		removedMembers     string
+		nonExistantMembers string
+
 		membersToRemoveDB []Member
 
-		nonExistantMembers string
-		text               string
+		text string
 
 		seen = checkSeen()
 	)
@@ -251,7 +252,7 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 		}
 
 		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.CheckMember(groupName, mention.Called.GID)
+			exist := gl.checkMember(groupName, mention.Called.GID)
 
 			if exist {
 				membersToRemoveDB = append(
@@ -266,8 +267,12 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 		}
 	}
 
+	if removedMembers == "" && nonExistantMembers == "" {
+		return "No members to remove. Please @ the member you are wanting to remove."
+	}
+
 	if removedMembers != "" {
-		go saveMemberRemoval(DBLogger, gl[saveName], membersToRemoveDB)
+		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
 		text += fmt.Sprintf("I've removed [ %s] from %q. ", removedMembers, groupName)
 	}
 
@@ -279,7 +284,7 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 }
 
 func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -292,19 +297,19 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 		gl[saveName].IsPrivate = false
 		gl[saveName].PrivacyRoomID = ""
 
-		go updatePrivacyDB(DBLogger, gl[saveName])
+		go Logger.UpdatePrivacyDB(gl[saveName])
 		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
 	}
 
 	gl[saveName].IsPrivate = true
 	gl[saveName].PrivacyRoomID = msgObj.Room.GID
 
-	go updatePrivacyDB(DBLogger, gl[saveName])
+	go Logger.UpdatePrivacyDB(gl[saveName])
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
 func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -356,7 +361,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 
 		var allGroupNames string
 		for name := range gl {
-			_, meta := gl.CheckGroup(name, msgObj)
+			_, meta := gl.checkGroup(name, msgObj)
 			if !strings.Contains(meta, "private") {
 				allGroupNames += " | " + gl[name].Name
 			}
@@ -369,7 +374,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
 	}
 
-	saveName, meta := gl.CheckGroup(groupName, msgObj)
+	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if meta != "" {
 		if !strings.Contains(meta, "exist") {
 			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
@@ -386,7 +391,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Here are details for %q: ```%s```", groupName, string(yamlList))
 }
 
-func (gl GroupList) CheckGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
+func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
 	match, err := regexp.Match(`^[\w-]{0,40}$`, []byte(groupName))
 	checkError(err)
 
@@ -414,7 +419,7 @@ func (gl GroupList) CheckGroup(groupName string, msgObj messageResponse) (saveNa
 	return
 }
 
-func (gl GroupList) CheckMember(groupName, memberID string) (here bool) {
+func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	saveName := strings.ToLower(groupName)
 
 	if len(gl[saveName].Members) == 0 {
@@ -448,4 +453,14 @@ func checkSeen() func(name string) bool {
 		seenMembers = append(seenMembers, name)
 		return false
 	}
+}
+
+func isGroup(groupName string) bool {
+	_, exists := Groups[strings.ToLower(groupName)]
+
+	if exists {
+		return true
+	}
+
+	return false
 }

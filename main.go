@@ -22,11 +22,11 @@ type (
 )
 
 var Groups = make(GroupList)
-var DBLogger = startDBLogger()
+var Logger = startDBLogger()
 
 func main() {
-	setupTables(DBLogger)
-	getGroupsFromDB(DBLogger, Groups)
+	Logger.SetupTables()
+	Logger.GetGroupsFromDB(Groups)
 
 	fmt.Println("Running!! on port " + PORT)
 
