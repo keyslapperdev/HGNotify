@@ -21,8 +21,10 @@ type (
 	Arguments   map[string]string
 )
 
-var Groups = make(GroupList)
-var Logger = startDBLogger()
+var (
+	Groups = make(GroupList)
+	Logger = startDBLogger()
+)
 
 func main() {
 	Logger.SetupTables()
@@ -60,6 +62,8 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 	case "MESSAGE":
 		e = json.Unmarshal(jsonReq, &msgObj)
 		checkError(e)
+
+		go Logger.CreateLogEntry(msgObj)
 
 		var msg string
 		resMsg, errMsg, ok := inspectMessage(msgObj)

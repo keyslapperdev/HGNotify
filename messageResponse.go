@@ -14,7 +14,6 @@ type User struct {
 type messageResponse struct {
 	Message struct {
 		Sender struct {
-			GID  string `json:"name"`
 			Name string `json:"displayName"`
 		} `json:"sender"`
 
@@ -32,6 +31,8 @@ type messageResponse struct {
 		GID  string `json:"name"`
 		Name string `json:"displayName"`
 	} `json:"space"`
+
+	Time string `json:"eventTime"`
 }
 
 func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {

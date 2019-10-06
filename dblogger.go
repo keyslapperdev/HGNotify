@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -9,6 +10,13 @@ import (
 
 type DBLogger struct {
 	*gorm.DB
+}
+
+type NotifyLog struct {
+	MessageID uint      `gorm:"primary_key;not null;unique"`
+	TimeSent  time.Time `gorm:"not null"`
+	Sender    string    `gorm:"not null"`
+	Message   string    `gorm:"type:varchar(4000);not null"`
 }
 
 func startDBLogger() DBLogger {
@@ -20,7 +28,7 @@ func startDBLogger() DBLogger {
 }
 
 func (db *DBLogger) SetupTables() {
-	db.AutoMigrate(&Group{}, &Member{})
+	db.AutoMigrate(&Group{}, &Member{}, &NotifyLog{})
 	db.Model(&Member{}).AddForeignKey("group_id", "groups(id)", "CASCADE", "RESTRICT")
 }
 
@@ -60,4 +68,20 @@ func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
 		saveName := strings.ToLower(group.Name)
 		groupList[saveName] = group
 	}
+}
+
+func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
+	sentAt, _ := time.Parse(time.RFC3339Nano, msgObj.Time)
+
+	//This is the result of a weird bug with the way time.Time.In returns/modifies
+	//the Time object. This is gross and I apologize to anyoene who ever sees this.
+	sentAt = sentAt.Add(-time.Hour * 5)
+
+	entry := &NotifyLog{
+		TimeSent: sentAt,
+		Sender:   msgObj.Message.Sender.Name,
+		Message:  msgObj.Message.Text,
+	}
+
+	db.Create(entry)
 }
