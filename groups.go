@@ -50,7 +50,6 @@ func (ng *Group) removeMember(member User) (removed Member) {
 
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
-	describe("meta: %+v\n", meta)
 	if !strings.Contains(meta, "name") {
 		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
 	}
