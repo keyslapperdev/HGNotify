@@ -23,7 +23,6 @@ func startDBLogger() DBLogger {
 	db, err := gorm.Open("mysql", "z_hgnotify_user:z_hgnotify_password@/z_hgnotify_test?charset=utf8mb4&parseTime=True")
 	checkError(err)
 
-	db.LogMode(true)
 	return DBLogger{db}
 }
 

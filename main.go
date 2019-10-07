@@ -14,6 +14,8 @@ const (
 
 	BOTNAME  string = "@HGNotify"
 	LOGBREAK string = "--------------------------------\n"
+
+	MASTERID string = "users/112801926796144444816"
 )
 
 type (

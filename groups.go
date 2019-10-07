@@ -409,7 +409,7 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 		return
 	}
 
-	if group.IsPrivate {
+	if group.IsPrivate && !msgObj.IsMaster {
 		if group.PrivacyRoomID != msgObj.Room.GID {
 			meta += "private"
 		}

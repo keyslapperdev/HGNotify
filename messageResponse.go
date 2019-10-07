@@ -15,6 +15,7 @@ type messageResponse struct {
 	Message struct {
 		Sender struct {
 			Name string `json:"displayName"`
+			GID  string `json:"name"`
 		} `json:"sender"`
 
 		Mentions []struct {
@@ -29,13 +30,22 @@ type messageResponse struct {
 
 	Room struct {
 		GID  string `json:"name"`
-		Name string `json:"displayName"`
+		Type string `json:"type"`
 	} `json:"space"`
 
-	Time string `json:"eventTime"`
+	Time     string `json:"eventTime"`
+	IsMaster bool
 }
 
-func (mr messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
+func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
+	mr.IsMaster = false
+	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MASTERID {
+		mr.IsMaster = true
+		if !strings.HasPrefix(mr.Message.Text, BOTNAME) {
+			mr.Message.Text = BOTNAME + " " + mr.Message.Text
+		}
+	}
+
 	tempArgs := strings.Fields(mr.Message.Text)
 	nArgs := len(tempArgs)
 	if nArgs < 2 {
