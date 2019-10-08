@@ -68,6 +68,8 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "disband" &&
 			option != "restrict" &&
 			option != "list" &&
+			option != "syncgroup" &&
+			option != "syncallgroups" &&
 			option != "usage" &&
 			option != "help" {
 			if isGroup(tempArgs[1]) {
@@ -145,8 +147,12 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		retMsg = Groups.Notify(args["groupName"], msgObj)
 	case "list":
 		retMsg = Groups.List(args["groupName"], msgObj)
+	case "syncgroup":
+		retMsg = Groups.SyncGroupMembers(args["groupName"], msgObj)
+	case "syncallgroups":
+		retMsg = Groups.SyncAllGroups(msgObj)
 	case "usage":
-		retMsg = usage("")
+		retMsg = usage("usageshort")
 	case "help":
 		retMsg = usage("")
 	default:

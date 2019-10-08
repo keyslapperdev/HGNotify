@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -374,20 +375,54 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 	}
 
 	saveName, meta := gl.checkGroup(groupName, msgObj)
-	if meta != "" {
-		if !strings.Contains(meta, "exist") {
-			return fmt.Sprintf("Group %q does not seem to exist.", groupName)
-		}
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
 
-		if strings.Contains(meta, "private") {
-			return fmt.Sprintf("The group %q is private, and you may not view it.", groupName)
-		}
+	if strings.Contains(meta, "private") {
+		return fmt.Sprintf("The group %q is private, and you may not view it.", groupName)
 	}
 
 	yamlList, err := yaml.Marshal(gl[saveName])
 	checkError(err)
 
 	return fmt.Sprintf("Here are details for %q: ```%s```", groupName, string(yamlList))
+}
+
+func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) string {
+	if !msgObj.IsMaster {
+		return "Invalid option received. I'm not sure what to do about \"syncgroup\"."
+	}
+
+	saveName, meta := gl.checkGroup(groupName, msgObj)
+	if !strings.Contains(meta, "exist") {
+		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
+	}
+
+	oldMembers := gl[saveName].Members
+	Logger.SyncGroup(gl[saveName])
+	syncedMembers := gl[saveName].Members
+
+	text := fmt.Sprintf("Group %q synced, ", groupName)
+
+	if reflect.DeepEqual(oldMembers, syncedMembers) {
+		text += "and no changes were made."
+	} else {
+		text += "and some changes were made."
+	}
+
+	return text
+}
+
+func (gl GroupList) SyncAllGroups(msgObj messageResponse) string {
+	if !msgObj.IsMaster {
+		return "Invalid option received. I'm not sure what to do about \"syncallgroups\"."
+	}
+
+	Logger.SyncAllGroups(gl)
+
+	fmt.Println("All groups synced")
+	return "All groups synced."
 }
 
 func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveName, meta string) {

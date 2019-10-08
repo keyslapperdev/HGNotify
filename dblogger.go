@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -67,6 +68,28 @@ func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
 		saveName := strings.ToLower(group.Name)
 		groupList[saveName] = group
 	}
+}
+
+func (db *DBLogger) SyncAllGroups(groups GroupList) {
+	//TODO: Create workergroup to have about 10 groups to be updated at a time.
+	var wg sync.WaitGroup
+
+	for _, group := range groups {
+		wg.Add(1)
+		go func(group *Group, wg *sync.WaitGroup) {
+			Logger.SyncGroup(group)
+			wg.Done()
+		}(group, &wg)
+	}
+
+	wg.Wait()
+}
+
+func (db *DBLogger) SyncGroup(group *Group) {
+	var members []Member
+	db.Model(&group).Related(&members)
+
+	group.Members = members
 }
 
 func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
