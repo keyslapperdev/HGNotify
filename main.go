@@ -158,7 +158,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 - When managing groups, "@HGNotify" must be the first thing in the messages
 - When notifying a group the text "@HGNotify GroupName" will be replaced with the members of the group. Just a heads up, so be sure to place that where you'd like it to appear.
 
-- Any problems please contact me at ----`
+- Any problems, comments, or suggestions please send me a message in gchat or email me at alexander.wilcots@endurance.com`
 
 	return fmt.Sprintf(" Usage ``%s`` Summary ```%s``` *LIMITATION* Please read ```%s``` Examples ```%s``` Options ```%s``` Notes ```%s```",
 		usageShort,
