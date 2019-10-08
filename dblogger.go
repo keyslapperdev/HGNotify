@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -23,7 +24,6 @@ func startDBLogger() DBLogger {
 	db, err := gorm.Open("mysql", "z_hgnotify_user:z_hgnotify_password@/z_hgnotify_test?charset=utf8mb4&parseTime=True")
 	checkError(err)
 
-	db.LogMode(true)
 	return DBLogger{db}
 }
 
@@ -68,6 +68,28 @@ func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
 		saveName := strings.ToLower(group.Name)
 		groupList[saveName] = group
 	}
+}
+
+func (db *DBLogger) SyncAllGroups(groups GroupList) {
+	//TODO: Create workergroup to have about 10 groups to be updated at a time.
+	var wg sync.WaitGroup
+
+	for _, group := range groups {
+		wg.Add(1)
+		go func(group *Group, wg *sync.WaitGroup) {
+			Logger.SyncGroup(group)
+			wg.Done()
+		}(group, &wg)
+	}
+
+	wg.Wait()
+}
+
+func (db *DBLogger) SyncGroup(group *Group) {
+	var members []Member
+	db.Model(&group).Related(&members)
+
+	group.Members = members
 }
 
 func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
