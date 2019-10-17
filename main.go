@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	PORT string = ":8443"
+	PORT string = ":8000"
 	CERT string = "/home/z/ssl/certs/gapi_thezspot_net_d2713_9b85d_1577145599_6429c0f6539a8947b31a35ed9a430a7e.crt"
 	KEY  string = "/home/z/ssl/keys/d2713_9b85d_3927f691549410111f93434afd1f37a7.key"
 
-	BOTNAME  string = "@HGNotify"
+	BOTNAME  string = "@DevelopmentHGNotify"
 	LOGBREAK string = "--------------------------------\n"
 
 	MASTERID string = "users/112801926796144444816"
