@@ -60,7 +60,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	}
 
 	if strings.Contains(meta, "exist") {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BotName, groupName, BotName, groupName)
 	}
 
 	var (
@@ -314,8 +314,8 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 
 	message := msgObj.Message.Text
 
-	botLen := len(BOTNAME)
-	botIndex := strings.Index(message, BOTNAME)
+	botLen := len(BotName)
+	botIndex := strings.Index(message, BotName)
 
 	tmpMessage := string([]byte(message)[botLen+botIndex:])
 
@@ -359,7 +359,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 			return noneToShow
 		}
 
-		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
+		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BotName)
 	}
 
 	saveName, meta := gl.checkGroup(groupName, msgObj)

@@ -7,15 +7,20 @@ import (
 	"net/http"
 )
 
-const (
-	PORT string = ":8000"
-	CERT string = "/home/z/ssl/certs/gapi_thezspot_net_d2713_9b85d_1577145599_6429c0f6539a8947b31a35ed9a430a7e.crt"
-	KEY  string = "/home/z/ssl/keys/d2713_9b85d_3927f691549410111f93434afd1f37a7.key"
+var (
+	Groups = make(GroupList)
+	Logger = startDBLogger()
+    Config = loadConfig("secret/config.yml")
+)
 
-	BOTNAME  string = "@DevelopmentHGNotify"
-	LOGBREAK string = "--------------------------------\n"
+var (
+	CertFile    string = Config.CertFile
+	CertKeyFile string = Config.CertKeyFile
 
-	MASTERID string = "users/112801926796144444816"
+	port string = Config.Port
+
+	BotName  string = Config.BotName
+	MasterID string = Config.MasterID
 )
 
 type (
@@ -23,19 +28,14 @@ type (
 	Arguments   map[string]string
 )
 
-var (
-	Groups = make(GroupList)
-	Logger = startDBLogger()
-)
-
 func main() {
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
 
-	fmt.Println("Running!! on port " + PORT)
+	fmt.Println("Running!! on port " + port)
 
 	http.HandleFunc("/", theHandler)
-	e := http.ListenAndServeTLS(PORT, CERT, KEY, nil)
+	e := http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
 	checkError(e)
 }
 

@@ -39,17 +39,17 @@ type messageResponse struct {
 
 func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	mr.IsMaster = false
-	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MASTERID {
+	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
 		mr.IsMaster = true
-		if !strings.HasPrefix(mr.Message.Text, BOTNAME) {
-			mr.Message.Text = BOTNAME + " " + mr.Message.Text
+		if !strings.HasPrefix(mr.Message.Text, BotName) {
+			mr.Message.Text = BotName + " " + mr.Message.Text
 		}
 	}
 
 	tempArgs := strings.Fields(mr.Message.Text)
 	nArgs := len(tempArgs)
 	if nArgs < 2 {
-		msg = BOTNAME + " seems to have been called with no params. Just a heads up."
+		msg = BotName + " seems to have been called with no params. Just a heads up."
 		ok = false
 
 		return
@@ -59,7 +59,7 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	ok = true
 	msg = ""
 
-	if tempArgs[0] == BOTNAME {
+	if tempArgs[0] == BotName {
 		option := strings.ToLower(tempArgs[1])
 
 		if option != "create" &&
@@ -96,7 +96,7 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		gi := 100000
 
 		for i, v := range tempArgs {
-			if v == BOTNAME {
+			if v == BotName {
 				gi = i
 			}
 
