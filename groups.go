@@ -97,7 +97,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	if numAdded == 0 {
 		newMembers = "no users"
 	} else {
-		newMembers = grammar(newMembers, numAdded, lastNameLen)
+		newMembers = correctGP(newMembers, numAdded, lastNameLen)
 	}
 
 	go Logger.SaveCreatedGroup(newGroup)
@@ -177,14 +177,14 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 	}
 
 	if numAdded > 0 {
-		addedMembers = grammar(addedMembers, numAdded, lastAddedNameLen)
+		addedMembers = correctGP(addedMembers, numAdded, lastAddedNameLen)
 
 		go Logger.SaveMemberAddition(gl[saveName])
 		text += fmt.Sprintf("I've added %s to the group %q.", addedMembers, groupName)
 	}
 
 	if numExist > 0 {
-		existingMembers = grammar(addedMembers, numExist, lastExistNameLen)
+		existingMembers = correctGP(addedMembers, numExist, lastExistNameLen)
 
 		text += fmt.Sprintf("\n%s already added the group %q. ", existingMembers, groupName)
 	}
@@ -256,14 +256,14 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	}
 
 	if numRemoved > 0 {
-		removedMembers = grammar(removedMembers, numRemoved, lastRemovedNameLen)
+		removedMembers = correctGP(removedMembers, numRemoved, lastRemovedNameLen)
 
 		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
 		text += fmt.Sprintf("I've removed %s from %q. ", removedMembers, groupName)
 	}
 
 	if numNonExist > 0 {
-		nonExistantMembers = grammar(nonExistantMembers, numNonExist, lastNonExistNameLen)
+		nonExistantMembers = correctGP(nonExistantMembers, numNonExist, lastNonExistNameLen)
 
 		text += fmt.Sprintf("\n%s didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
 	}
@@ -462,7 +462,7 @@ func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	return
 }
 
-func grammar(members string, delta, lastNameLen int) (corrected string) {
+func correctGP(members string, delta, lastNameLen int) (corrected string) {
 	switch delta {
 	case 1:
 		corrected = "the user" + members

@@ -8,19 +8,21 @@ import (
 )
 
 var (
+	Config   = loadConfig("secret/config.yml")
+	dbConfig = loadDBConfig("secret/dbconfig.yml")
+
 	Groups = make(GroupList)
-	Logger = startDBLogger()
-    Config = loadConfig("secret/config.yml")
+	Logger = startDBLogger(dbConfig)
 )
 
 var (
-	CertFile    string = Config.CertFile
-	CertKeyFile string = Config.CertKeyFile
+	CertFile    = Config.CertFile
+	CertKeyFile = Config.CertKeyFile
 
-	port string = Config.Port
+	port = Config.Port
 
-	BotName  string = Config.BotName
-	MasterID string = Config.MasterID
+	BotName  = Config.BotName
+	MasterID = Config.MasterID
 )
 
 type (

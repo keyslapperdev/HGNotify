@@ -1,26 +1,43 @@
 package main
 
 import (
-    "io/ioutil"
+	"io/ioutil"
 
-    "github.com/go-yaml/yaml"
+	"github.com/go-yaml/yaml"
 )
 
 type HGNConfig struct {
-    CertFile    string `yaml:"certFile"`
-    CertKeyFile string `yaml:"certKeyFile"`
+	CertFile    string `yaml:"certFile"`
+	CertKeyFile string `yaml:"certKeyFile"`
 
-    Port string `yaml:"port"`
+	BotName  string `yaml:"botName"`
+	MasterID string `yaml:"MasterID"`
 
-    BotName  string `yaml:"botName"`
-    MasterID string `yaml:"MasterID"`
+	Port string `yaml:"port"`
 }
 
-func loadConfig(src string) (config HGNConfig){
-    configB, err := ioutil.ReadFile(src)
-    checkError(err)
+type DBConfig struct {
+	Driver string `yaml:"driver"`
+	DBUser string `yaml:"user"`
+	DBName string `yaml:"name"`
+	DBPass string `yaml:"password"`
+	DBOpts string `yaml:"options"`
+}
 
-    yaml.Unmarshal(configB, &config)
+func loadConfig(src string) (config HGNConfig) {
+	configB, err := ioutil.ReadFile(src)
+	checkError(err)
 
-    return
+	yaml.Unmarshal(configB, &config)
+
+	return
+}
+
+func loadDBConfig(src string) (config DBConfig) {
+	configB, err := ioutil.ReadFile(src)
+	checkError(err)
+
+	yaml.Unmarshal(configB, &config)
+
+	return
 }
