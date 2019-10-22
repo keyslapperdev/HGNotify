@@ -20,8 +20,14 @@ type NotifyLog struct {
 	Message   string    `gorm:"type:varchar(4000);not null"`
 }
 
-func startDBLogger() DBLogger {
-	db, err := gorm.Open("mysql", "z_hgnotify_user:z_hgnotify_password@/z_hgnotify_test?charset=utf8mb4&parseTime=True")
+func startDBLogger(conf DBConfig) DBLogger {
+	db, err := gorm.Open(
+		conf.Driver,
+		conf.DBUser+":"+
+			conf.DBPass+"@/"+
+			conf.DBName+"?"+
+			conf.DBOpts)
+
 	checkError(err)
 
 	return DBLogger{db}

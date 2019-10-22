@@ -60,7 +60,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	}
 
 	if strings.Contains(meta, "exist") {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BOTNAME, groupName, BOTNAME, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BotName, groupName, BotName, groupName)
 	}
 
 	var (
@@ -68,7 +68,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		newGroup   = new(Group)
 		newMembers string
 
-		additions   int
+		numAdded    int
 		lastNameLen int
 
 		seen = checkSeen()
@@ -83,8 +83,8 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		}
 
 		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			additions++
-			if additions > 1 {
+			numAdded++
+			if numAdded > 1 {
 				newMembers += ","
 			}
 			newGroup.addMember(mention.Called.User)
@@ -94,28 +94,15 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		}
 	}
 
-	switch additions {
-	case 0:
-		newMembers = "with no users"
-	case 1:
-		newMembers = "with the user " + newMembers
-	case 2:
-		newMembers = "with users " + newMembers
-		foreMemberBytes := []byte(newMembers)[:len(newMembers)-lastNameLen-2]
-		afterMemberBytes := []byte(newMembers)[len(newMembers)-lastNameLen:]
-
-		newMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
-	default:
-		newMembers = "with users " + newMembers
-		foreMemberBytes := []byte(newMembers)[:len(newMembers)-lastNameLen]
-		afterMemberBytes := []byte(newMembers)[len(newMembers)-lastNameLen:]
-
-		newMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
+	if numAdded == 0 {
+		newMembers = "no users"
+	} else {
+		newMembers = correctGP(newMembers, numAdded, lastNameLen)
 	}
 
 	go Logger.SaveCreatedGroup(newGroup)
 	gl[saveName] = newGroup
-	return fmt.Sprintf("Created group %q %s.", groupName, newMembers)
+	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
 }
 
 func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
@@ -148,9 +135,10 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 		existingMembers string
 		text            string
 
-		added       int
-		existing    int
-		lastNameLen int
+		numAdded         int
+		numExist         int
+		lastAddedNameLen int
+		lastExistNameLen int
 
 		seen = checkSeen()
 	)
@@ -164,60 +152,39 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 			exist := gl.checkMember(groupName, mention.Called.GID)
 
 			if !exist {
-				added++
+				numAdded++
+				if numAdded > 1 {
+					addedMembers += ","
+				}
 				gl[saveName].addMember(mention.Called.User)
 
-				addedMembers += mention.Called.Name + " "
+				addedMembers += " " + mention.Called.Name
+				lastAddedNameLen = len(mention.Called.Name)
 			} else {
-				existing++
-				existingMembers += mention.Called.Name + " "
+				numExist++
+				if numExist > 1 {
+					existingMembers += ","
+				}
+
+				existingMembers += " " + mention.Called.Name
+				lastExistNameLen = len(mention.Called.Name)
 			}
 		}
 	}
 
-	if added == 0 && existing == 0 {
+	if numAdded == 0 && numExist == 0 {
 		return "No users to add. Please @ the member you'd like to add to the group."
 	}
 
-	if added > 0 {
-		switch added {
-		case 1:
-			addedMembers = "the user " + addedMembers
-		case 2:
-			addedMembers = "the users " + addedMembers
-			foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen-2]
-			afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
-
-			addedMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
-		default:
-			addedMembers = "the users " + addedMembers
-			foreMemberBytes := []byte(addedMembers)[:len(addedMembers)-lastNameLen]
-			afterMemberBytes := []byte(addedMembers)[len(addedMembers)-lastNameLen:]
-
-			addedMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
-		}
+	if numAdded > 0 {
+		addedMembers = correctGP(addedMembers, numAdded, lastAddedNameLen)
 
 		go Logger.SaveMemberAddition(gl[saveName])
 		text += fmt.Sprintf("I've added %s to the group %q.", addedMembers, groupName)
 	}
 
-	if existing > 0 {
-		switch existing {
-		case 1:
-			existingMembers = "The user " + existingMembers
-		case 2:
-			existingMembers = "The users " + existingMembers
-			foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen-2]
-			afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
-
-			existingMembers = string(foreMemberBytes) + " and " + string(afterMemberBytes)
-		default:
-			existingMembers = "The users " + existingMembers
-			foreMemberBytes := []byte(existingMembers)[:len(existingMembers)-lastNameLen]
-			afterMemberBytes := []byte(existingMembers)[len(existingMembers)-lastNameLen:]
-
-			existingMembers = string(foreMemberBytes) + "and " + string(afterMemberBytes)
-		}
+	if numExist > 0 {
+		existingMembers = correctGP(addedMembers, numExist, lastExistNameLen)
 
 		text += fmt.Sprintf("\n%s already added the group %q. ", existingMembers, groupName)
 	}
@@ -241,6 +208,11 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 
 		membersToRemoveDB []Member
 
+		numNonExist         int
+		numRemoved          int
+		lastRemovedNameLen  int
+		lastNonExistNameLen int
+
 		text string
 
 		seen = checkSeen()
@@ -255,29 +227,45 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 			exist := gl.checkMember(groupName, mention.Called.GID)
 
 			if exist {
+				numRemoved++
+				if numRemoved > 1 {
+					removedMembers += ","
+				}
+
 				membersToRemoveDB = append(
 					membersToRemoveDB,
 					gl[saveName].removeMember(mention.Called.User),
 				)
 
-				removedMembers += mention.Called.Name + " "
+				removedMembers += " " + mention.Called.Name
+				lastRemovedNameLen = len(mention.Called.Name)
 			} else {
-				nonExistantMembers += mention.Called.Name + " "
+				numNonExist++
+				if numNonExist > 1 {
+					nonExistantMembers += ","
+				}
+
+				nonExistantMembers += " " + mention.Called.Name
+				lastNonExistNameLen = len(mention.Called.Name)
 			}
 		}
 	}
 
-	if removedMembers == "" && nonExistantMembers == "" {
+	if numRemoved == 0 && numNonExist == 0 {
 		return "No members to remove. Please @ the member you are wanting to remove."
 	}
 
-	if removedMembers != "" {
+	if numRemoved > 0 {
+		removedMembers = correctGP(removedMembers, numRemoved, lastRemovedNameLen)
+
 		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
-		text += fmt.Sprintf("I've removed [ %s] from %q. ", removedMembers, groupName)
+		text += fmt.Sprintf("I've removed %s from %q. ", removedMembers, groupName)
 	}
 
-	if nonExistantMembers != "" {
-		text += fmt.Sprintf("\nUser(s) [ %s] didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
+	if numNonExist > 0 {
+		nonExistantMembers = correctGP(nonExistantMembers, numNonExist, lastNonExistNameLen)
+
+		text += fmt.Sprintf("\n%s didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
 	}
 
 	return text
@@ -326,8 +314,8 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 
 	message := msgObj.Message.Text
 
-	botLen := len(BOTNAME)
-	botIndex := strings.Index(message, BOTNAME)
+	botLen := len(BotName)
+	botIndex := strings.Index(message, BotName)
 
 	tmpMessage := string([]byte(message)[botLen+botIndex:])
 
@@ -371,7 +359,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 			return noneToShow
 		}
 
-		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BOTNAME)
+		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BotName)
 	}
 
 	saveName, meta := gl.checkGroup(groupName, msgObj)
@@ -469,6 +457,27 @@ func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 		} else {
 			here = false
 		}
+	}
+
+	return
+}
+
+func correctGP(members string, delta, lastNameLen int) (corrected string) {
+	switch delta {
+	case 1:
+		corrected = "the user" + members
+	case 2:
+		corrected = "the users" + members
+		foreMemberBytes := []byte(corrected)[:len(corrected)-lastNameLen-2]
+		afterMemberBytes := []byte(corrected)[len(corrected)-lastNameLen:]
+
+		corrected = string(foreMemberBytes) + " and " + string(afterMemberBytes)
+	default:
+		corrected = "the users" + members
+		foreMemberBytes := []byte(corrected)[:len(corrected)-lastNameLen]
+		afterMemberBytes := []byte(corrected)[len(corrected)-lastNameLen:]
+
+		corrected = string(foreMemberBytes) + "and " + string(afterMemberBytes)
 	}
 
 	return
