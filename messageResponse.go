@@ -5,12 +5,15 @@ import (
 	"strings"
 )
 
+//User struct defines a user in the context of google's chat api
 type User struct {
 	Name string `json:"displayName"`
 	GID  string `json:"name"`
 	Type string `json:"type"`
 }
 
+//messageResponse contains pretty much everything important to this
+//bot from gchat's payload
 type messageResponse struct {
 	Message struct {
 		Sender struct {
@@ -37,10 +40,18 @@ type messageResponse struct {
 	IsMaster bool
 }
 
+//parseArgs is a method used to take the string passed through the api and make
+//sense of it for the bot.
 func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	mr.IsMaster = false
+	//The admin of the bot can be changed via configs, but they are defined by
+	//the id google gives them, incase their name changes, and how they reach out.
+	//i.e. The bot will only recognize the admin if messaged via DM. and admin
+	//shouldn't be doing admin things in front of the common folk.
 	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
 		mr.IsMaster = true
+		//This prepends the botname to the message so that the admin doesn't have to
+		//@ the bot when DM-ing it. The conditional allows you to do either.
 		if !strings.HasPrefix(mr.Message.Text, BotName) {
 			mr.Message.Text = BotName + " " + mr.Message.Text
 		}
@@ -62,6 +73,8 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	if tempArgs[0] == BotName {
 		option := strings.ToLower(tempArgs[1])
 
+		//I'd like to find a cleaner way to triage the string, but this seems
+		//to be the best as of now. I do worry, that this could get hard to maintain.
 		if option != "create" &&
 			option != "add" &&
 			option != "remove" &&
@@ -92,6 +105,12 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		args["action"] = "notify"
 	}
 
+	//This one is a bit jank, I'll admit (PR's Welcome :D). What's happening is gi
+	//is a value set to be arbitrarily high, it stands for group index. The for loop
+	//loops through the words given by the message text, separated by whitespace. When
+	//When it identified the bot name, it sets gi. After gi is set, the next thing should
+	//be the group name. So the loop just sets the next item to be the group name and
+	//proceeds
 	if args["action"] == "notify" {
 		gi := 100000
 
@@ -110,6 +129,8 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	return
 }
 
+//inspectMessage method (maybe should be renamed) takes the parsed arguments
+//then reacts accordingly.
 func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	ok = true
 
@@ -156,6 +177,8 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "help":
 		retMsg = usage("")
 	default:
+		//All of the argument things should be taken care of by the time we get here,
+		//BUT It's better to handle the exceptions than let them bite you.
 		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
 	}
 
