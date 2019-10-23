@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+//Initializing global variables
 var (
 	Config   = loadConfig("secret/config.yml")
 	dbConfig = loadDBConfig("secret/dbconfig.yml")
@@ -15,6 +16,7 @@ var (
 	Logger = startDBLogger(dbConfig)
 )
 
+//Setting up general configurations for usage of the bot
 var (
 	CertFile    = Config.CertFile
 	CertKeyFile = Config.CertKeyFile
@@ -26,8 +28,14 @@ var (
 )
 
 type (
+	//GenericJSON holds type for general JSON objects
 	GenericJSON map[string]interface{}
-	Arguments   map[string]string
+
+	//Arguments is generic type for passing arguments as a map
+	//between functions. I feel this is kinda an artifact of
+	//learing perl as my first language, but it sure does make
+	//things a bit more clear.
+	Arguments map[string]string
 )
 
 func main() {
@@ -67,6 +75,7 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		e = json.Unmarshal(jsonReq, &msgObj)
 		checkError(e)
 
+		//Log every usage of hgnotify to the db.
 		go Logger.CreateLogEntry(msgObj)
 
 		var msg string
@@ -84,13 +93,14 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		jsonResp, e = json.Marshal(resp)
 
 	default:
+		//Not too sure of any message type that's not Added or Message, there is removed
+		//But that one doesn't allow messages to be sent, sooooooooo?
 		resp := map[string]string{
 			"text": "Oh, ummm! I'm not exactly sure what happened, or what type of request this is. But here's what I was made to do, if it helps." + usage(""),
 		}
 		jsonResp, e = json.Marshal(resp)
 	}
 
-	//describe("Request: %v\nResponse: %v\n%s", string(jsonReq), string(jsonResp), LOGBREAK)
 	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 

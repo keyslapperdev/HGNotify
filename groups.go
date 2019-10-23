@@ -10,10 +10,14 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+//GroupList tpye is used to hold all group information in memory for
+//speedy interaction with the groups.
 type (
 	GroupList map[string]*Group
 )
 
+//Group struct used to hold/model a group's structure. Note: Elements
+//with the `yaml:"-"` tag do not appear in the 'List' function
 type Group struct {
 	gorm.Model    `yaml:"-"`
 	Name          string   `yaml:"groupName" gorm:"not null"`
@@ -22,6 +26,7 @@ type Group struct {
 	PrivacyRoomID string   `yaml:"-"`
 }
 
+//Member struct used to define member information
 type Member struct {
 	gorm.Model `yaml:"-"`
 	GroupID    uint   `yaml:"-" gorm:"index:idx_members_group_id"`
@@ -29,6 +34,10 @@ type Member struct {
 	GID        string `yaml:"gchatID" gorm:"not null"`
 }
 
+//addMember is an unexported method, because nothing outside of this file
+//uses these methods. If the name of the method wasn't clear enough, it's
+//used specifcially to map a user to a member and add them to the associated
+//group
 func (ng *Group) addMember(member User) {
 	addition := Member{
 		Name: member.Name,
@@ -38,6 +47,10 @@ func (ng *Group) addMember(member User) {
 	ng.Members = append(ng.Members, addition)
 }
 
+//removeMember is also unexported, for the same reason. This method removes
+//users from the assocaited group I kind of had to get creative with this one.
+//The return value is specifically so the removal can be reflected in the
+//database
 func (ng *Group) removeMember(member User) (removed Member) {
 	for i, groupMember := range ng.Members {
 		if member.GID == groupMember.GID {
@@ -49,6 +62,7 @@ func (ng *Group) removeMember(member User) (removed Member) {
 	return
 }
 
+//Create method initializes a single group.
 func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "name") {
@@ -105,6 +119,9 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
 }
 
+//Disband method will remove a group from the list, as well, delete the group from the
+//database. The removal from the database will also remove the associated member entries
+//something to be aware of.
 func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
@@ -120,6 +137,7 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
 }
 
+//AddMembers method adds a list of members to the specified group.
 func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
@@ -192,6 +210,9 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 	return text
 }
 
+//RemoveMembers method removes the member from the group. When the member is removed from
+//the group, they are not deleted from the database, but are marked as removed, just in
+//case
 func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
@@ -271,6 +292,7 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 	return text
 }
 
+//Restrict method restricts the interaction of the group to the room this was called in.
 func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
@@ -296,6 +318,8 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
+//Notify method is the bread and butter of this bot. It's it will take your message, and
+//replace the botname and specified group, with the users in the list.
 func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
@@ -326,6 +350,10 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 		msgObj.Message.Sender.Name,
 		strings.Replace(
 			message,
+			//This bit of nonsense is how I actually do the replacing. I cast the message
+			//string to an array of bytes, go to the beginning of the bot, select up until
+			//the end of the group name, then cast that bit into a string to be replaced
+			//by the memberList. It's gross, but efficient. Like me?
 			string([]byte(message)[botIndex:botIndex+botLen+groupIndex+groupLen]),
 			memberList,
 			1,
@@ -339,6 +367,8 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 	return newMessage
 }
 
+//List method will show you either a list of all of the groups available for use, or details
+//about a specific group, depending on the options with which you call the method.
 func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 	if groupName == "" {
 		noneToShow := "There are no groups to show currently. :("
@@ -359,6 +389,8 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 			return noneToShow
 		}
 
+		//the [3:] in the byte slice cast is just to remove the leading pipe and accompanying
+		//spaces
 		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BotName)
 	}
 
@@ -377,6 +409,11 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 	return fmt.Sprintf("Here are details for %q: ```%s```", groupName, string(yamlList))
 }
 
+//SyncGroupMembers is a hidden route for the bot's admin. It's purpose is to sync the
+//in-memory groups with the information in the database. Typically the database is only used
+//for logging, and not really influencing the in-memory group list. However, there are some
+//special circumstances which may call for manual intervention. With this method, the admin
+//would be able to modify the database manually, then call this method to sync a single group.
 func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) string {
 	if !msgObj.IsMaster {
 		return "Invalid option received. I'm not sure what to do about \"syncgroup\"."
@@ -387,12 +424,16 @@ func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) s
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
 
+	//Storing old member list to check later if a change has occured
 	oldMembers := gl[saveName].Members
 	Logger.SyncGroup(gl[saveName])
 	syncedMembers := gl[saveName].Members
 
 	text := fmt.Sprintf("Group %q synced, ", groupName)
 
+	//At this point, I don't believe I am too concerned with the specific
+	//members so much as, if a change occured. Maybe in the future, this
+	//can be updated to be more specific.
 	if reflect.DeepEqual(oldMembers, syncedMembers) {
 		text += "and no changes were made."
 	} else {
@@ -402,6 +443,8 @@ func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) s
 	return text
 }
 
+//SyncAllGroups is similar to the philosophy of the above method. The main difference, is this
+//one does a sync for all of the groups, as opposed to just one.
 func (gl GroupList) SyncAllGroups(msgObj messageResponse) string {
 	if !msgObj.IsMaster {
 		return "Invalid option received. I'm not sure what to do about \"syncallgroups\"."
@@ -413,6 +456,8 @@ func (gl GroupList) SyncAllGroups(msgObj messageResponse) string {
 	return "All groups synced."
 }
 
+//checkGroups method checks the group and returns data about the group to be processed and
+//responded to accordingly
 func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
 	match, err := regexp.Match(`^[\w-]{0,40}$`, []byte(groupName))
 	checkError(err)
@@ -432,6 +477,7 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 		return
 	}
 
+	//Nothing is private for bot admin.
 	if group.IsPrivate && !msgObj.IsMaster {
 		if group.PrivacyRoomID != msgObj.Room.GID {
 			meta += "private"
@@ -441,6 +487,10 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 	return
 }
 
+//checkMember method pretty much checks solely to see if the member exists. As I'm writing
+//I'm realizing this should actually be a method of the group, and not the group list. :|
+//I'll do that later.
+//TODO: Make checkMember a method of Group and not GroupList
 func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	saveName := strings.ToLower(groupName)
 
@@ -462,12 +512,16 @@ func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	return
 }
 
+//correctGP is a function that appropriately adds commas and the word "and" where needed
+//It's kinda gross, but it works :D
 func correctGP(members string, delta, lastNameLen int) (corrected string) {
 	switch delta {
 	case 1:
 		corrected = "the user" + members
 	case 2:
 		corrected = "the users" + members
+		//The -2 at the end of lastNameLen is to remove a comma placed between
+		//the two user names, as it's not needed
 		foreMemberBytes := []byte(corrected)[:len(corrected)-lastNameLen-2]
 		afterMemberBytes := []byte(corrected)[len(corrected)-lastNameLen:]
 
@@ -483,6 +537,8 @@ func correctGP(members string, delta, lastNameLen int) (corrected string) {
 	return
 }
 
+//checkSeen is a function that checks to see if the same name was placed more than once
+//when listing users for any of the methods
 func checkSeen() func(name string) bool {
 	var seenMembers []string
 
@@ -498,6 +554,10 @@ func checkSeen() func(name string) bool {
 	}
 }
 
+//isGroup is a function created for the Notify method. This is what checks the string after
+//the bot's name call to check if it's a group. In the future, this will be called more than
+//once depending on if the preceeding string was a group. This would be support for notifying
+//multiple groups at once. That does seem like something useful, but not really at this time.
 func isGroup(groupName string) bool {
 	_, exists := Groups[strings.ToLower(groupName)]
 

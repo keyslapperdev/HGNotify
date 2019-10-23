@@ -14,6 +14,6 @@ func describe(msg string, v ...interface{}) {
 	spew.Printf(msg, v...)
 }
 
-func Spew(v ...interface{}) {
+func dump(v ...interface{}) {
 	spew.Dump(v...)
 }
