@@ -11,7 +11,7 @@ type HGNConfig struct {
 	CertKeyFile string `yaml:"certKeyFile"`
 
 	BotName  string `yaml:"botName"`
-	MasterID string `yaml:"MasterID"`
+	MasterID string `yaml:"masterID"`
 
 	Port string `yaml:"port"`
 }
