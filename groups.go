@@ -116,7 +116,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 
 	go Logger.SaveCreatedGroup(newGroup)
 	gl[saveName] = newGroup
-	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
+	return fmt.Sprintf("Created group %q with the %s.", groupName, newMembers)
 }
 
 //Disband method will remove a group from the list, as well, delete the group from the
@@ -198,13 +198,13 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 		addedMembers = correctGP(addedMembers, numAdded, lastAddedNameLen)
 
 		go Logger.SaveMemberAddition(gl[saveName])
-		text += fmt.Sprintf("I've added %s to the group %q.", addedMembers, groupName)
+		text += fmt.Sprintf("I've added the %s to the group %q.", addedMembers, groupName)
 	}
 
 	if numExist > 0 {
-		existingMembers = correctGP(addedMembers, numExist, lastExistNameLen)
+		existingMembers = correctGP(existingMembers, numExist, lastExistNameLen)
 
-		text += fmt.Sprintf("\n%s already added the group %q. ", existingMembers, groupName)
+		text += fmt.Sprintf("\nThe %s already added the group %q. ", existingMembers, groupName)
 	}
 
 	return text
@@ -280,13 +280,13 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 		removedMembers = correctGP(removedMembers, numRemoved, lastRemovedNameLen)
 
 		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
-		text += fmt.Sprintf("I've removed %s from %q. ", removedMembers, groupName)
+		text += fmt.Sprintf("I've removed the %s from %q. ", removedMembers, groupName)
 	}
 
 	if numNonExist > 0 {
 		nonExistantMembers = correctGP(nonExistantMembers, numNonExist, lastNonExistNameLen)
 
-		text += fmt.Sprintf("\n%s didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
+		text += fmt.Sprintf("\nThe %s didn't seem to exist when attempting to remove them from %q. ", nonExistantMembers, groupName)
 	}
 
 	return text
@@ -517,9 +517,9 @@ func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 func correctGP(members string, delta, lastNameLen int) (corrected string) {
 	switch delta {
 	case 1:
-		corrected = "the user" + members
+		corrected = "user" + members
 	case 2:
-		corrected = "the users" + members
+		corrected = "users" + members
 		//The -2 at the end of lastNameLen is to remove a comma placed between
 		//the two user names, as it's not needed
 		foreMemberBytes := []byte(corrected)[:len(corrected)-lastNameLen-2]
@@ -527,7 +527,7 @@ func correctGP(members string, delta, lastNameLen int) (corrected string) {
 
 		corrected = string(foreMemberBytes) + " and " + string(afterMemberBytes)
 	default:
-		corrected = "the users" + members
+		corrected = "users" + members
 		foreMemberBytes := []byte(corrected)[:len(corrected)-lastNameLen]
 		afterMemberBytes := []byte(corrected)[len(corrected)-lastNameLen:]
 
