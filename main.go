@@ -109,7 +109,7 @@ func usage(option string) string {
 
 	options["create"] = `
 create groupName [mentions]
-    Create a group containing mentioned members. While I'm not sure why you would, you can initialize an empty group.`
+    Create a group containing mentioned members. While I'm not sure why you would, you can initialize an empty group. Add "self" to the list of mentions to add yourself.`
 
 	options["disband"] = `
 disband groupName
@@ -117,11 +117,11 @@ disband groupName
 
 	options["add"] = `
 add groupName mentions
-    Add mentioned members to the specified GroupName. This can only be used for groups that already exist. If you intend to create a new group use create.`
+    Add mentioned members to the specified GroupName. This can only be used for groups that already exist. If you intend to create a new group use create. Add "self" to the list of mentions to add yourself.`
 
 	options["remove"] = `
 remove groupName mentions
-    Remove mentioned members from the specified GroupName.`
+    Remove mentioned members from the specified GroupName. Add "self" to the list of mentions to remove yourself.`
 
 	options["restrict"] = `
 restrict groupName

@@ -63,7 +63,7 @@ func (ng *Group) removeMember(member User) (removed Member) {
 }
 
 //Create method initializes a single group.
-func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
+func (gl GroupList) Create(groupName, self string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "name") {
 		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
@@ -108,6 +108,19 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 		}
 	}
 
+	if self != "" {
+		sender := msgObj.Message.Sender
+
+		numAdded++
+		if numAdded > 1 {
+			newMembers += ","
+		}
+		newGroup.addMember(sender.User)
+
+		newMembers += " " + sender.Name
+		lastNameLen = len(sender.Name)
+	}
+
 	if numAdded == 0 {
 		newMembers = "no users"
 	} else {
@@ -116,7 +129,7 @@ func (gl GroupList) Create(groupName string, msgObj messageResponse) string {
 
 	go Logger.SaveCreatedGroup(newGroup)
 	gl[saveName] = newGroup
-	return fmt.Sprintf("Created group %q with the %s.", groupName, newMembers)
+	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
 }
 
 //Disband method will remove a group from the list, as well, delete the group from the
@@ -138,7 +151,7 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 }
 
 //AddMembers method adds a list of members to the specified group.
-func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string {
+func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
@@ -190,6 +203,30 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 		}
 	}
 
+	if self != "" {
+		sender := msgObj.Message.Sender
+		exist := gl.checkMember(groupName, sender.GID)
+
+		if !exist {
+			numAdded++
+			if numAdded > 1 {
+				addedMembers += ","
+			}
+			gl[saveName].addMember(sender.User)
+
+			addedMembers += " " + sender.Name
+			lastAddedNameLen = len(sender.Name)
+		} else {
+			numExist++
+			if numExist > 1 {
+				existingMembers += ","
+			}
+
+			existingMembers += " " + sender.Name
+			lastExistNameLen = len(sender.Name)
+		}
+	}
+
 	if numAdded == 0 && numExist == 0 {
 		return "No users to add. Please @ the member you'd like to add to the group."
 	}
@@ -213,7 +250,7 @@ func (gl GroupList) AddMembers(groupName string, msgObj messageResponse) string 
 //RemoveMembers method removes the member from the group. When the member is removed from
 //the group, they are not deleted from the database, but are marked as removed, just in
 //case
-func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) string {
+func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse) string {
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
@@ -269,6 +306,34 @@ func (gl GroupList) RemoveMembers(groupName string, msgObj messageResponse) stri
 				nonExistantMembers += " " + mention.Called.Name
 				lastNonExistNameLen = len(mention.Called.Name)
 			}
+		}
+	}
+
+	if self != "" {
+		sender := msgObj.Message.Sender
+		exist := gl.checkMember(groupName, sender.GID)
+
+		if exist {
+			numRemoved++
+			if numRemoved > 1 {
+				removedMembers += ","
+			}
+
+			membersToRemoveDB = append(
+				membersToRemoveDB,
+				gl[saveName].removeMember(sender.User),
+			)
+
+			removedMembers += " " + sender.Name
+			lastRemovedNameLen = len(sender.Name)
+		} else {
+			numNonExist++
+			if numNonExist > 1 {
+				nonExistantMembers += ","
+			}
+
+			nonExistantMembers += " " + sender.Name
+			lastNonExistNameLen = len(sender.Name)
 		}
 	}
 
@@ -490,7 +555,6 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 //checkMember method pretty much checks solely to see if the member exists. As I'm writing
 //I'm realizing this should actually be a method of the group, and not the group list. :|
 //I'll do that later.
-//TODO: Make checkMember a method of Group and not GroupList
 func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	saveName := strings.ToLower(groupName)
 
