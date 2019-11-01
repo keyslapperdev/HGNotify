@@ -34,28 +34,48 @@ type Member struct {
 	GID        string `yaml:"gchatID" gorm:"not null"`
 }
 
+func (g *Group) manageMember(action string, memberList *string, delta, lastNameLen *int, user User) (memberToRemoveDB Member) {
+	*delta++
+	if *delta > 1 {
+		*memberList += ","
+	}
+
+	switch action {
+	case "add":
+		g.addMember(user)
+	case "remove":
+		memberToRemoveDB = g.removeMember(user)
+	default:
+		//do nothing
+	}
+
+	*memberList += " " + user.Name
+	*lastNameLen = len(user.Name)
+	return
+}
+
 //addMember is an unexported method, because nothing outside of this file
 //uses these methods. If the name of the method wasn't clear enough, it's
 //used specifcially to map a user to a member and add them to the associated
 //group
-func (ng *Group) addMember(member User) {
+func (g *Group) addMember(member User) {
 	addition := Member{
 		Name: member.Name,
 		GID:  member.GID,
 	}
 
-	ng.Members = append(ng.Members, addition)
+	g.Members = append(g.Members, addition)
 }
 
 //removeMember is also unexported, for the same reason. This method removes
 //users from the assocaited group I kind of had to get creative with this one.
 //The return value is specifically so the removal can be reflected in the
 //database
-func (ng *Group) removeMember(member User) (removed Member) {
-	for i, groupMember := range ng.Members {
+func (g *Group) removeMember(member User) (removed Member) {
+	for i, groupMember := range g.Members {
 		if member.GID == groupMember.GID {
 			removed = groupMember
-			ng.Members = append(ng.Members[:i], ng.Members[i+1:]...)
+			g.Members = append(g.Members[:i], g.Members[i+1:]...)
 		}
 	}
 
@@ -92,33 +112,19 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	newGroup.IsPrivate = false
 
 	for _, mention := range mentions {
-		if seen(mention.Called.Name) {
+		user := mention.Called.User
+
+		if seen(user.Name) {
 			continue
 		}
 
-		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			numAdded++
-			if numAdded > 1 {
-				newMembers += ","
-			}
-			newGroup.addMember(mention.Called.User)
-
-			newMembers += " " + mention.Called.Name
-			lastNameLen = len(mention.Called.Name)
+		if user.Type != "BOT" && mention.Type == "USER_MENTION" {
+			newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, user)
 		}
 	}
 
 	if self != "" {
-		sender := msgObj.Message.Sender
-
-		numAdded++
-		if numAdded > 1 {
-			newMembers += ","
-		}
-		newGroup.addMember(sender.User)
-
-		newMembers += " " + sender.Name
-		lastNameLen = len(sender.Name)
+		newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, msgObj.Message.Sender.User)
 	}
 
 	if numAdded == 0 {
@@ -147,7 +153,7 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 
 	go Logger.DisbandGroup(gl[saveName])
 	delete(gl, saveName)
-	return fmt.Sprintf("Group %q has been deleted, along with all it's data.", groupName)
+	return fmt.Sprintf("Group %q has been deleted, along with all it data.", groupName)
 }
 
 //AddMembers method adds a list of members to the specified group.
@@ -175,30 +181,19 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
-		if seen(mention.Called.Name) {
+		user := mention.Called.User
+
+		if seen(user.Name) {
 			continue
 		}
 
-		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.checkMember(groupName, mention.Called.GID)
+		if user.Type != "BOT" && mention.Type == "USER_MENTION" {
+			exist := gl.checkMember(groupName, user.GID)
 
 			if !exist {
-				numAdded++
-				if numAdded > 1 {
-					addedMembers += ","
-				}
-				gl[saveName].addMember(mention.Called.User)
-
-				addedMembers += " " + mention.Called.Name
-				lastAddedNameLen = len(mention.Called.Name)
+				gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, user)
 			} else {
-				numExist++
-				if numExist > 1 {
-					existingMembers += ","
-				}
-
-				existingMembers += " " + mention.Called.Name
-				lastExistNameLen = len(mention.Called.Name)
+				gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, user)
 			}
 		}
 	}
@@ -208,22 +203,9 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		exist := gl.checkMember(groupName, sender.GID)
 
 		if !exist {
-			numAdded++
-			if numAdded > 1 {
-				addedMembers += ","
-			}
-			gl[saveName].addMember(sender.User)
-
-			addedMembers += " " + sender.Name
-			lastAddedNameLen = len(sender.Name)
+			gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender.User)
 		} else {
-			numExist++
-			if numExist > 1 {
-				existingMembers += ","
-			}
-
-			existingMembers += " " + sender.Name
-			lastExistNameLen = len(sender.Name)
+			gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender.User)
 		}
 	}
 
@@ -277,34 +259,34 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
+		user := mention.Called.User
+
 		if seen(mention.Called.Name) {
 			continue
 		}
 
-		if mention.Called.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.checkMember(groupName, mention.Called.GID)
+		if user.Type != "BOT" && mention.Type == "USER_MENTION" {
+			exist := gl.checkMember(groupName, user.GID)
 
 			if exist {
-				numRemoved++
-				if numRemoved > 1 {
-					removedMembers += ","
-				}
-
 				membersToRemoveDB = append(
 					membersToRemoveDB,
-					gl[saveName].removeMember(mention.Called.User),
+					gl[saveName].manageMember(
+						"remove",
+						&removedMembers,
+						&numRemoved,
+						&lastRemovedNameLen,
+						user,
+					),
 				)
-
-				removedMembers += " " + mention.Called.Name
-				lastRemovedNameLen = len(mention.Called.Name)
 			} else {
-				numNonExist++
-				if numNonExist > 1 {
-					nonExistantMembers += ","
-				}
-
-				nonExistantMembers += " " + mention.Called.Name
-				lastNonExistNameLen = len(mention.Called.Name)
+				gl[saveName].manageMember(
+					"none",
+					&nonExistantMembers,
+					&numNonExist,
+					&lastNonExistNameLen,
+					user,
+				)
 			}
 		}
 	}
@@ -314,26 +296,24 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 		exist := gl.checkMember(groupName, sender.GID)
 
 		if exist {
-			numRemoved++
-			if numRemoved > 1 {
-				removedMembers += ","
-			}
-
 			membersToRemoveDB = append(
 				membersToRemoveDB,
-				gl[saveName].removeMember(sender.User),
+				gl[saveName].manageMember(
+					"remove",
+					&removedMembers,
+					&numRemoved,
+					&lastRemovedNameLen,
+					sender.User,
+				),
 			)
-
-			removedMembers += " " + sender.Name
-			lastRemovedNameLen = len(sender.Name)
 		} else {
-			numNonExist++
-			if numNonExist > 1 {
-				nonExistantMembers += ","
-			}
-
-			nonExistantMembers += " " + sender.Name
-			lastNonExistNameLen = len(sender.Name)
+			gl[saveName].manageMember(
+				"none",
+				&nonExistantMembers,
+				&numNonExist,
+				&lastNonExistNameLen,
+				sender.User,
+			)
 		}
 	}
 
