@@ -17,8 +17,7 @@ type User struct {
 type messageResponse struct {
 	Message struct {
 		Sender struct {
-			Name string `json:"displayName"`
-			GID  string `json:"name"`
+			User
 		} `json:"sender"`
 
 		Mentions []struct {
@@ -46,7 +45,7 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	mr.IsMaster = false
 	//The admin of the bot can be changed via configs, but they are defined by
 	//the id google gives them, incase their name changes, and how they reach out.
-	//i.e. The bot will only recognize the admin if messaged via DM. and admin
+	//i.e. The bot will only recognize the admin if messaged via DM. an admin
 	//shouldn't be doing admin things in front of the common folk.
 	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
 		mr.IsMaster = true
@@ -105,6 +104,16 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 		args["action"] = "notify"
 	}
 
+	//Logic introduced for adding/removing yourself from a group
+	if args["action"] == "add" || args["action"] == "remove" || args["action"] == "create" {
+		for _, item := range tempArgs {
+			if strings.ToLower(item) == "self" {
+				args["self"] = "self"
+				break
+			}
+		}
+	}
+
 	//This one is a bit jank, I'll admit (PR's Welcome :D). What's happening is gi
 	//is a value set to be arbitrarily high, it stands for group index. The for loop
 	//loops through the words given by the message text, separated by whitespace. When
@@ -146,36 +155,50 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		if args["groupName"] == "" {
 			retMsg = fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
 		} else {
-			retMsg = Groups.Create(args["groupName"], msgObj)
+			retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
 		}
+
 	case "disband":
 		if args["groupName"] == "" {
 			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
 		} else {
 			retMsg = Groups.Disband(args["groupName"], msgObj)
 		}
+
 	case "add":
-		retMsg = Groups.AddMembers(args["groupName"], msgObj)
+		retMsg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
+
 	case "remove":
-		retMsg = Groups.RemoveMembers(args["groupName"], msgObj)
+		retMsg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
+
 	case "restrict":
 		if args["groupName"] == "" {
 			retMsg = fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
 		} else {
 			retMsg = Groups.Restrict(args["groupName"], msgObj)
 		}
+
 	case "notify":
 		retMsg = Groups.Notify(args["groupName"], msgObj)
+
 	case "list":
 		retMsg = Groups.List(args["groupName"], msgObj)
+
 	case "syncgroup":
 		retMsg = Groups.SyncGroupMembers(args["groupName"], msgObj)
+
 	case "syncallgroups":
 		retMsg = Groups.SyncAllGroups(msgObj)
+
+	case "usageShort":
+		retMsg = usage("usageShort")
+
 	case "usage":
-		retMsg = usage("usageshort")
+		retMsg = getUsageWithLink(usage(""))
+
 	case "help":
 		retMsg = usage("")
+
 	default:
 		//All of the argument things should be taken care of by the time we get here,
 		//BUT It's better to handle the exceptions than let them bite you.
