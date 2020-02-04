@@ -141,7 +141,7 @@ groupName
 
 	usageShort := "`@HGNotify [options] [GroupName] [mentions...]`"
 
-	if option == "usageshort" {
+	if option == "usageShort" {
 		return usageShort
 	} else if option != "" {
 		return options[option]

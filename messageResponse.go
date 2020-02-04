@@ -45,7 +45,7 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 	mr.IsMaster = false
 	//The admin of the bot can be changed via configs, but they are defined by
 	//the id google gives them, incase their name changes, and how they reach out.
-	//i.e. The bot will only recognize the admin if messaged via DM. and admin
+	//i.e. The bot will only recognize the admin if messaged via DM. an admin
 	//shouldn't be doing admin things in front of the common folk.
 	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
 		mr.IsMaster = true
@@ -190,8 +190,11 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 	case "syncallgroups":
 		retMsg = Groups.SyncAllGroups(msgObj)
 
+	case "usageShort":
+		retMsg = usage("usageShort")
+
 	case "usage":
-		retMsg = usage("usageshort")
+		retMsg = getUsageWithLink(usage(""))
 
 	case "help":
 		retMsg = usage("")
