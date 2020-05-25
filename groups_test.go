@@ -9,7 +9,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func TestGroupCreate(t *testing.T) {
+func TestCreateGroup(t *testing.T) {
 	_ = spew.Dump
 
 	Logger.Active(false)
@@ -20,14 +20,14 @@ func TestGroupCreate(t *testing.T) {
 		Message: message{
 			Sender: User{
 				Name: selfName,
-				GID:  genGID(0),
+				GID:  genUserGID(0),
 				Type: "HUMAN",
 			},
 
 			Mentions: nil,
 		},
 		Room: space{
-			GID:  "spaces/a",
+			GID:  genRoomGID(0),
 			Type: "ROOM",
 		},
 		Time: "",
@@ -54,7 +54,7 @@ func TestGroupCreate(t *testing.T) {
 			Called: userMention{
 				User: User{
 					Name: "User 1 Name",
-					GID:  genGID(0),
+					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
 			},
@@ -64,7 +64,7 @@ func TestGroupCreate(t *testing.T) {
 			Called: userMention{
 				User: User{
 					Name: "User 2 Name",
-					GID:  genGID(0),
+					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
 			},
@@ -79,7 +79,7 @@ func TestGroupCreate(t *testing.T) {
 		Called: userMention{
 			User: User{
 				Name: unwantedBotName,
-				GID:  genGID(0),
+				GID:  genUserGID(0),
 				Type: "BOT",
 			},
 		},
@@ -131,36 +131,54 @@ func TestGroupCreate(t *testing.T) {
 	})
 }
 
-/*
-type messageResponse struct {
-    Message  message `json:"message"`
-    Room     space `json:"space"`
-    Time     string `json:"eventTime"`
-    IsMaster bool
+func TestDisbandGroup(t *testing.T) {
+	_ = spew.Dump
+
+	Logger.Active(false)
+	Groups := make(GroupList)
+
+	saveName := strings.ToLower(randString(10))
+
+	msgObj := messageResponse{}
+	msgObj.IsMaster = false
+
+	t.Run("Disband group successsfully", func(t *testing.T) {
+		group := new(Group)
+
+		Groups[saveName] = group
+		Groups.Disband(saveName, msgObj)
+
+		if _, exist := Groups[saveName]; exist {
+			t.Fatal("Group wasn't removed")
+		}
+	})
+
+	t.Run("Disband didn't touch private group", func(t *testing.T) {
+		group := new(Group)
+		group.IsPrivate = true
+		group.PrivacyRoomID = genRoomGID(0)
+
+		Groups[saveName] = group
+
+		Groups.Disband(saveName, msgObj)
+
+		if _, exist := Groups[saveName]; !exist {
+			t.Fatal("Private group was removed")
+		}
+	})
+
+	t.Run("Doesn't die if group doesn't exist", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("Panicked: %q", r)
+			}
+		}()
+
+		Groups := new(GroupList)
+		Groups.Disband(saveName, msgObj)
+	})
+
 }
-
-type message struct {
-    Sender User `json:"sender"`
-
-    Mentions []annotation `json:"annotations"`
-
-    Text string `json:"text"`
-}
-
-type annotation struct {
-    Called userMention `json:"userMention"`
-    Type string `json:"type"`
-}
-
-type userMention struct {
-    User `json:"user"`
-}
-
-type space struct {
-    GID  string `json:"name"`
-    Type string `json:"type"`
-}
-*/
 
 //Test helper data
 const charset = "abcdefghijklmnopqrstuvwxyz" +
@@ -181,10 +199,18 @@ func randString(length int) string {
 	return StringWithCharset(length, charset)
 }
 
-func genGID(length int) string {
+func genUserGID(length int) string {
 	if length == 0 {
 		length = 10
 	} //Defaulting 10
 
 	return "users/" + StringWithCharset(length, "0123456789")
+}
+
+func genRoomGID(length int) string {
+	if length == 0 {
+		length = 10
+	} //Defaulting 10
+
+	return "spaces/" + StringWithCharset(length, "0123456789")
 }
