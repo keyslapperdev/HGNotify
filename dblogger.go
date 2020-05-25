@@ -13,6 +13,7 @@ import (
 //the DB object so that I can throw methods on it.
 type DBLogger struct {
 	*gorm.DB
+	isActive bool
 }
 
 //NotifyLog defines a database schema for the message logger.
@@ -38,13 +39,16 @@ func startDBLogger(conf DBConfig) DBLogger {
 
 	checkError(err)
 
-	return DBLogger{db}
+	return DBLogger{db, true}
 }
 
 //SetupTables method is used when the file first starts up to
 //ensure all databases are created and updated as they should be.
 //If everything is fine, this is only ran once, ever.
 func (db *DBLogger) SetupTables() {
+	if db.isActive {
+		return
+	}
 	db.AutoMigrate(&Group{}, &Member{}, &NotifyLog{})
 	db.Model(&Member{}).AddForeignKey("group_id", "groups(id)", "CASCADE", "RESTRICT")
 }
@@ -52,12 +56,18 @@ func (db *DBLogger) SetupTables() {
 //SaveCreatedGroup method is used to update the database whenever
 //a new group is created
 func (db *DBLogger) SaveCreatedGroup(group *Group) {
+	if db.isActive {
+		return
+	}
 	db.Create(group)
 }
 
 //DisbandGroup method will delete a group's entry from the database,
 //along with all the associated users.
 func (db *DBLogger) DisbandGroup(group *Group) {
+	if db.isActive {
+		return
+	}
 	db.Unscoped().Delete(group)
 }
 
@@ -66,18 +76,27 @@ func (db *DBLogger) DisbandGroup(group *Group) {
 //values entered into the database are "zero value", so gorm ignores them.
 //To get them to set the zero value I have to be specific with the query.
 func (db *DBLogger) UpdatePrivacyDB(group *Group) {
+	if db.isActive {
+		return
+	}
 	db.Model(group).Select("is_private").Update("IsPrivate", group.IsPrivate)
 	db.Model(group).Select("privacy_room_id").Update("PrivacyRoomID", group.PrivacyRoomID)
 }
 
 //SaveMemberAddition method adds a member to the associated group
 func (db *DBLogger) SaveMemberAddition(group *Group) {
+	if db.isActive {
+		return
+	}
 	db.Model(group).Update(group)
 }
 
 //SaveMemberRemoval method marks the assocaited memeber as removed from
 //the group.
 func (db *DBLogger) SaveMemberRemoval(group *Group, members []Member) {
+	if db.isActive {
+		return
+	}
 	for _, member := range members {
 		db.Model(group).Delete(member)
 	}
@@ -86,6 +105,9 @@ func (db *DBLogger) SaveMemberRemoval(group *Group, members []Member) {
 //GetGroupsFromDB method syncs the database groups to the in-memory group list
 //this is ran when the program starts up.
 func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
+	if db.isActive {
+		return
+	}
 	var foundGroups []*Group
 	db.Find(&foundGroups)
 
@@ -103,6 +125,10 @@ func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
 //SyncAllGroups method syncs the database groups to the in-memory group list
 //during runtime. Just in case.
 func (db *DBLogger) SyncAllGroups(groups GroupList) {
+	if db.isActive {
+		return
+	}
+
 	//TODO: Create workergroup to have about 10 groups to be updated at a time.
 	var wg sync.WaitGroup
 
@@ -122,6 +148,10 @@ func (db *DBLogger) SyncAllGroups(groups GroupList) {
 //SyncGroup method syncs the members in an in-memory group to the database entries
 //this can be done during runtime. Just in case.
 func (db *DBLogger) SyncGroup(group *Group) {
+	if db.isActive {
+		return
+	}
+
 	var members []Member
 	db.Model(&group).Related(&members)
 
@@ -130,6 +160,10 @@ func (db *DBLogger) SyncGroup(group *Group) {
 
 //CreateLogEntry method logs usage of the bot to the database.
 func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
+	if db.isActive {
+		return
+	}
+
 	sentAt, _ := time.Parse(time.RFC3339Nano, msgObj.Time)
 
 	//This is the result of a weird bug with the way time.Time.In returns/modifies
@@ -143,4 +177,9 @@ func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
 	}
 
 	db.Create(entry)
+}
+
+//Active is the setter method for the activity of the db logger
+func (db *DBLogger) Active(status bool) {
+	db.isActive = status
 }

@@ -15,28 +15,30 @@ type User struct {
 //messageResponse contains pretty much everything important to this
 //bot from gchat's payload
 type messageResponse struct {
-	Message struct {
-		Sender struct {
-			User
-		} `json:"sender"`
-
-		Mentions []struct {
-			Called struct {
-				User `json:"user"`
-			} `json:"userMention"`
-			Type string `json:"type"`
-		} `json:"annotations"`
-
-		Text string `json:"text"`
-	} `json:"message"`
-
-	Room struct {
-		GID  string `json:"name"`
-		Type string `json:"type"`
-	} `json:"space"`
-
-	Time     string `json:"eventTime"`
+	Message  message `json:"message"`
+	Room     space   `json:"space"`
+	Time     string  `json:"eventTime"`
 	IsMaster bool
+}
+
+type message struct {
+	Sender   User         `json:"sender"`
+	Mentions []annotation `json:"annotations"`
+	Text     string       `json:"text"`
+}
+
+type annotation struct {
+	Called userMention `json:"userMention"`
+	Type   string      `json:"type"`
+}
+
+type userMention struct {
+	User `json:"user"`
+}
+
+type space struct {
+	GID  string `json:"name"`
+	Type string `json:"type"`
 }
 
 //parseArgs is a method used to take the string passed through the api and make
@@ -152,11 +154,7 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 
 	switch args["action"] {
 	case "create":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
-		} else {
-			retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
-		}
+		retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
 
 	case "disband":
 		if args["groupName"] == "" {

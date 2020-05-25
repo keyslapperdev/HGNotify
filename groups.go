@@ -84,6 +84,10 @@ func (g *Group) removeMember(member User) (removed Member) {
 
 //Create method initializes a single group.
 func (gl GroupList) Create(groupName, self string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
+	}
+
 	saveName, meta := gl.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "name") {
 		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
@@ -95,10 +99,10 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 
 	if strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"",
-            groupName,
-            BotName, groupName,
-            BotName, groupName,
-        )
+			groupName,
+			BotName, groupName,
+			BotName, groupName,
+		)
 	}
 
 	var (
@@ -128,7 +132,7 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	}
 
 	if self != "" {
-		newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, msgObj.Message.Sender.User)
+		newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, msgObj.Message.Sender)
 	}
 
 	if numAdded == 0 {
@@ -207,9 +211,9 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		exist := gl.checkMember(groupName, sender.GID)
 
 		if !exist {
-			gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender.User)
+			gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender)
 		} else {
-			gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender.User)
+			gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender)
 		}
 	}
 
@@ -307,7 +311,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 					&removedMembers,
 					&numRemoved,
 					&lastRemovedNameLen,
-					sender.User,
+					sender,
 				),
 			)
 		} else {
@@ -316,7 +320,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 				&nonExistantMembers,
 				&numNonExist,
 				&lastNonExistNameLen,
-				sender.User,
+				sender,
 			)
 		}
 	}
