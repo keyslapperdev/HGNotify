@@ -94,7 +94,11 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	}
 
 	if strings.Contains(meta, "exist") {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BotName, groupName, BotName, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"",
+            groupName,
+            BotName, groupName,
+            BotName, groupName,
+        )
 	}
 
 	var (
