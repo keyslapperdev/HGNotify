@@ -188,6 +188,8 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		seen = checkSeen()
 	)
 
+	group := gl[saveName]
+
 	for _, mention := range msgObj.Message.Mentions {
 		user := mention.Called.User
 
@@ -199,9 +201,9 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 			exist := gl.checkMember(groupName, user.GID)
 
 			if !exist {
-				gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, user)
+				group.manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, user)
 			} else {
-				gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, user)
+				group.manageMember("none", &existingMembers, &numExist, &lastExistNameLen, user)
 			}
 		}
 	}
@@ -211,9 +213,9 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		exist := gl.checkMember(groupName, sender.GID)
 
 		if !exist {
-			gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender)
+			group.manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender)
 		} else {
-			gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender)
+			group.manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender)
 		}
 	}
 
@@ -224,7 +226,7 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 	if numAdded > 0 {
 		addedMembers = correctGP(addedMembers, numAdded, lastAddedNameLen)
 
-		go Logger.SaveMemberAddition(gl[saveName])
+		go Logger.SaveMemberAddition(group)
 		text += fmt.Sprintf("I've added the %s to the group %q.", addedMembers, groupName)
 	}
 
@@ -264,6 +266,8 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 		text string
 
 		seen = checkSeen()
+
+		group = gl[saveName]
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
@@ -279,7 +283,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 			if exist {
 				membersToRemoveDB = append(
 					membersToRemoveDB,
-					gl[saveName].manageMember(
+					group.manageMember(
 						"remove",
 						&removedMembers,
 						&numRemoved,
@@ -288,7 +292,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 					),
 				)
 			} else {
-				gl[saveName].manageMember(
+				group.manageMember(
 					"none",
 					&nonExistantMembers,
 					&numNonExist,
@@ -306,7 +310,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 		if exist {
 			membersToRemoveDB = append(
 				membersToRemoveDB,
-				gl[saveName].manageMember(
+				group.manageMember(
 					"remove",
 					&removedMembers,
 					&numRemoved,
@@ -315,7 +319,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 				),
 			)
 		} else {
-			gl[saveName].manageMember(
+			group.manageMember(
 				"none",
 				&nonExistantMembers,
 				&numNonExist,
@@ -332,7 +336,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 	if numRemoved > 0 {
 		removedMembers = correctGP(removedMembers, numRemoved, lastRemovedNameLen)
 
-		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
+		go Logger.SaveMemberRemoval(group, membersToRemoveDB)
 		text += fmt.Sprintf("I've removed the %s from %q. ", removedMembers, groupName)
 	}
 

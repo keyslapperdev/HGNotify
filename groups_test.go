@@ -295,6 +295,23 @@ func TestAddMembers(t *testing.T) {
 
 	group.Members = nil
 
+	t.Run("Correctly adds self to group", func(t *testing.T) {
+		Groups.AddMembers(saveName, "self", msgObj)
+
+		var foundSelf bool
+		for _, member := range group.Members {
+			if member.Name == selfName {
+				foundSelf = true
+			}
+		}
+
+		if !foundSelf {
+			t.Fatal("Member not added to the group")
+		}
+	})
+
+	group.Members = nil
+
 	t.Run("Does not add same user twice", func(t *testing.T) {
 		wantedName := randString(10)
 		msgObj.Message.Mentions = []annotation{{
@@ -342,6 +359,196 @@ func TestAddMembers(t *testing.T) {
 
 		if group.Members != nil {
 			t.Fatal("Incorrectly added member to private group")
+		}
+	})
+}
+
+func TestRemoveMembers(t *testing.T) {
+	Logger.Active(false)
+
+	Groups := make(GroupList)
+
+	saveName := strings.ToLower(randString(10))
+
+	Groups[saveName] = new(Group)
+	group := Groups[saveName]
+
+	selfGID := randString(10)
+	msgObj := messageResponse{
+		Message: message{
+			Sender: User{
+				GID: selfGID,
+			},
+
+			Mentions: nil,
+		},
+		Room: space{
+			GID:  genRoomGID(0),
+			Type: "ROOM",
+		},
+		Time: "",
+	}
+
+	t.Run("Removes single member", func(t *testing.T) {
+		memberGID := genUserGID(0)
+		group.Members = []Member{{
+			GID: memberGID,
+		}}
+
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: randString(10),
+					GID:  memberGID,
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		Groups.RemoveMembers(saveName, "", msgObj)
+
+		if len(group.Members) > 0 {
+			t.Fatal("Did not remove member")
+		}
+	})
+
+	t.Run("Removes single member from group with multiple members", func(t *testing.T) {
+		wantedMembers := []Member{
+			{GID: genUserGID(0)},
+			{GID: genUserGID(0)},
+			{GID: genUserGID(0)},
+		}
+
+		GIDToRemove := genUserGID(0)
+		unWantedMember := Member{
+			GID: GIDToRemove,
+		}
+
+		group.Members = wantedMembers
+		group.Members = append(group.Members, unWantedMember)
+
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: randString(10),
+					GID:  GIDToRemove,
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		Groups.RemoveMembers(saveName, "", msgObj)
+
+		if len(group.Members) != len(wantedMembers) {
+			t.Fatalf("Incorrect member count\nWanted: %d\nGot: %d",
+				len(group.Members),
+				len(wantedMembers),
+			)
+		}
+
+		var foundUnwanted bool
+		for _, member := range group.Members {
+			if member.GID == unWantedMember.GID {
+				foundUnwanted = true
+			}
+		}
+
+		if foundUnwanted {
+			t.Fatal("Unwanted member found")
+		}
+	})
+
+	t.Run("Removes multiple members", func(t *testing.T) {
+		unWantedMembers := []Member{
+			{GID: genUserGID(0)},
+			{GID: genUserGID(0)},
+		}
+
+		group.Members = unWantedMembers
+
+		msgObj.Message.Mentions = []annotation{
+			{
+				Called: userMention{
+					User: User{
+						Name: randString(10),
+						GID:  unWantedMembers[0].GID,
+						Type: "HUMAN",
+					},
+				},
+				Type: "USER_MENTION",
+			},
+			{
+				Called: userMention{
+					User: User{
+						Name: randString(10),
+						GID:  unWantedMembers[1].GID,
+						Type: "HUMAN",
+					},
+				},
+				Type: "USER_MENTION",
+			},
+		}
+
+		Groups.RemoveMembers(saveName, "", msgObj)
+
+		if len(group.Members) != 0 {
+			t.Fatalf("Incorrect member count should be 0, Got: %d", len(group.Members))
+		}
+
+		if _, exist := Groups[saveName]; !exist {
+			t.Fatal("Somehow the group was nuked when emptied.... Big problem")
+		}
+	})
+
+	t.Run("Removes self from group", func(t *testing.T) {
+		group.Members = []Member{
+			{GID: selfGID},
+			{GID: genUserGID(0)},
+			{GID: genUserGID(0)},
+		}
+
+		Groups.RemoveMembers(saveName, "self", msgObj)
+
+		var foundUnwanted bool
+		for _, member := range group.Members {
+			if member.GID == msgObj.Message.Sender.Name {
+				foundUnwanted = true
+			}
+		}
+
+		if foundUnwanted {
+			t.Fatal("Found self in still in group")
+		}
+	})
+
+	group.Members = nil
+
+	t.Run("Does not remove member from private group", func(t *testing.T) {
+		unWantedGID := genUserGID(0)
+		group.Members = []Member{{
+			GID: unWantedGID,
+		}}
+
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: randString(10),
+					GID:  unWantedGID,
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		group.IsPrivate = true
+		group.PrivacyRoomID = genRoomGID(0)
+
+		Groups.RemoveMembers(saveName, "", msgObj)
+
+		if len(group.Members) != 1 {
+			t.Fatal("Incorrectly removed member")
 		}
 	})
 }
