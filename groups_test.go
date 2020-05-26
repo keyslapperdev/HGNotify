@@ -180,6 +180,172 @@ func TestDisbandGroup(t *testing.T) {
 
 }
 
+func TestAddMembers(t *testing.T) {
+	Logger.Active(false)
+
+	Groups := make(GroupList)
+
+	saveName := strings.ToLower(randString(10))
+
+	Groups[saveName] = new(Group)
+	group := Groups[saveName]
+
+	selfName := randString(10)
+	msgObj := messageResponse{
+		Message: message{
+			Sender: User{
+				Name: selfName,
+				GID:  genUserGID(0),
+				Type: "HUMAN",
+			},
+
+			Mentions: nil,
+		},
+		Room: space{
+			GID:  genRoomGID(0),
+			Type: "ROOM",
+		},
+		Time: "",
+	}
+
+	t.Run("Adds single member to group", func(t *testing.T) {
+		wantedName := randString(10)
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: wantedName,
+					GID:  genUserGID(0),
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		Groups.AddMembers(saveName, "", msgObj)
+
+		var foundMember bool
+		for _, member := range group.Members {
+			if member.Name == wantedName {
+				foundMember = true
+			}
+		}
+
+		if !foundMember {
+			t.Fatal("Member not added to the group")
+		}
+	})
+
+	group.Members = nil
+
+	t.Run("Adds multiple members to group", func(t *testing.T) {
+		wantedMentions := []annotation{
+			{
+				Called: userMention{
+					User: User{
+						Name: "User 1 Name",
+						GID:  genUserGID(0),
+						Type: "HUMAN",
+					},
+				},
+				Type: "USER_MENTION",
+			},
+			{
+				Called: userMention{
+					User: User{
+						Name: "User 2 Name",
+						GID:  genUserGID(0),
+						Type: "HUMAN",
+					},
+				},
+				Type: "USER_MENTION",
+			},
+		}
+
+		msgObj.Message.Mentions = wantedMentions
+
+		unwantedBotName := randString(10)
+		msgObj.Message.Mentions = append(msgObj.Message.Mentions, annotation{
+			Called: userMention{
+				User: User{
+					Name: unwantedBotName,
+					GID:  genUserGID(0),
+					Type: "BOT",
+				},
+			},
+			Type: "USER_MENTION",
+		})
+
+		Groups.AddMembers(saveName, "", msgObj)
+
+		if len(group.Members) != len(wantedMentions) {
+			t.Fatalf("Correct embers not added to group\nWanted: %d\nGot: %d",
+				len(group.Members),
+				len(wantedMentions),
+			)
+		}
+
+		t.Run("Ignore bot in mention", func(t *testing.T) {
+			for _, member := range group.Members {
+				if member.Name == unwantedBotName {
+					t.Fatal("Bot was found in group")
+				}
+			}
+		})
+	})
+
+	group.Members = nil
+
+	t.Run("Does not add same user twice", func(t *testing.T) {
+		wantedName := randString(10)
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: wantedName,
+					GID:  genUserGID(0),
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		Groups.AddMembers(saveName, "", msgObj)
+		Groups.AddMembers(saveName, "", msgObj)
+
+		if group.Members[0].Name != wantedName {
+			t.Fatal("Correct memeber not added")
+		}
+
+		if len(group.Members) != 1 {
+			t.Fatal("Incorrect number of members")
+		}
+	})
+
+	group.Members = nil
+
+	t.Run("Does not add member to private group", func(t *testing.T) {
+		wantedName := randString(10)
+		msgObj.Message.Mentions = []annotation{{
+			Called: userMention{
+				User: User{
+					Name: wantedName,
+					GID:  genUserGID(0),
+					Type: "HUMAN",
+				},
+			},
+			Type: "USER_MENTION",
+		}}
+
+		group.IsPrivate = true
+		group.PrivacyRoomID = genRoomGID(0)
+
+		Groups.AddMembers(saveName, "", msgObj)
+
+		if group.Members != nil {
+			t.Fatal("Incorrectly added member to private group")
+		}
+	})
+}
+
 //Test helper data
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
