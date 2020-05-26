@@ -23,14 +23,11 @@ func TestCreateGroup(t *testing.T) {
 				GID:  genUserGID(0),
 				Type: "HUMAN",
 			},
-
-			Mentions: nil,
 		},
 		Room: space{
 			GID:  genRoomGID(0),
 			Type: "ROOM",
 		},
-		Time: "",
 	}
 
 	t.Run("Created new empty group", func(t *testing.T) {
@@ -53,7 +50,7 @@ func TestCreateGroup(t *testing.T) {
 		{
 			Called: userMention{
 				User: User{
-					Name: "User 1 Name",
+					Name: randString(10),
 					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
@@ -63,7 +60,7 @@ func TestCreateGroup(t *testing.T) {
 		{
 			Called: userMention{
 				User: User{
-					Name: "User 2 Name",
+					Name: randString(10),
 					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
@@ -379,14 +376,11 @@ func TestRemoveMembers(t *testing.T) {
 			Sender: User{
 				GID: selfGID,
 			},
-
-			Mentions: nil,
 		},
 		Room: space{
 			GID:  genRoomGID(0),
 			Type: "ROOM",
 		},
-		Time: "",
 	}
 
 	t.Run("Removes single member", func(t *testing.T) {
@@ -549,6 +543,170 @@ func TestRemoveMembers(t *testing.T) {
 
 		if len(group.Members) != 1 {
 			t.Fatal("Incorrectly removed member")
+		}
+	})
+}
+
+func TestRestrictGroup(t *testing.T) {
+	Logger.Active(false)
+
+	saveName := strings.ToLower(randString(10))
+
+	wantedRoomGID := genRoomGID(0)
+	msgObj := messageResponse{
+		Room: space{
+			GID: wantedRoomGID,
+		},
+	}
+
+	t.Run("Set room ID when toggling privacy", func(t *testing.T) {
+		Groups := make(GroupList)
+		Groups[saveName] = new(Group)
+		group := Groups[saveName]
+
+		Groups.Restrict(saveName, msgObj)
+
+		if group.PrivacyRoomID != wantedRoomGID || !group.IsPrivate {
+			t.Fatal("Privacy not set properly")
+		}
+	})
+
+	t.Run("Toggle Privacy properly", func(t *testing.T) {
+		Groups := make(GroupList)
+		Groups[saveName] = new(Group)
+		group := Groups[saveName]
+
+		Groups.Restrict(saveName, msgObj)
+
+		if !group.IsPrivate {
+			t.Fatal("Didn't set privacy")
+		}
+
+		origState := group.IsPrivate
+
+		Groups.Restrict(saveName, msgObj)
+
+		if origState == group.IsPrivate {
+			t.Fatal("Privacy did not toggle properly from on to off")
+		}
+
+		Groups.Restrict(saveName, msgObj)
+
+		if origState != group.IsPrivate {
+			t.Fatal("Privacy did not toggle properly from off to on")
+		}
+	})
+}
+
+func TestNotifyGroup(t *testing.T) {
+	Logger.Active(false)
+
+	Groups := make(GroupList)
+
+	saveName := strings.ToLower(randString(10))
+
+	Groups[saveName] = new(Group)
+	group := Groups[saveName]
+
+	selfName := randString(10)
+	msgObj := messageResponse{
+		Message: message{
+			Sender: User{
+				Name: selfName,
+			},
+		},
+		Room: space{
+			GID:  genRoomGID(0),
+			Type: "ROOM",
+		},
+	}
+
+	BotName = "@TestBot"
+	testText := " test text."
+
+	t.Run("Group with single user notified", func(t *testing.T) {
+		wantedGID := genUserGID(0)
+		group.Members = []Member{{
+			GID: wantedGID,
+		}}
+
+		msgObj.Message.Text = BotName + " " + saveName + testText
+
+		gotText := Groups.Notify(saveName, msgObj)
+
+		if strings.Contains(gotText, BotName) {
+			t.Fatalf("Botname should not be in generated text\nGot: %q",
+				gotText,
+			)
+		}
+
+		if strings.Contains(gotText, saveName) {
+			t.Fatalf("Group name should not be in text\nGot: %q",
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, selfName) {
+			t.Fatalf("Sender name should be included in message\nGot %q",
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, testText) {
+			t.Fatalf("Result text should contain the message\nGot: %q",
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, wantedGID) {
+			t.Fatalf("Result text should contain single user's GID\nGot: %q",
+				gotText,
+			)
+		}
+	})
+
+	t.Run("Group with multiple users notified", func(t *testing.T) {
+		wantedGID1 := genUserGID(0)
+		wantedGID2 := genUserGID(0)
+
+		group.Members = []Member{
+			{GID: wantedGID1},
+			{GID: wantedGID2},
+		}
+
+		msgObj.Message.Text = BotName + " " + saveName + testText
+
+		gotText := Groups.Notify(saveName, msgObj)
+
+		if strings.Contains(gotText, BotName) {
+			t.Fatalf("Botname should not be in generated text\nGot: %q",
+				gotText,
+			)
+		}
+
+		if strings.Contains(gotText, saveName) {
+			t.Fatalf("Group name should not be in text\nGot: %q",
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, selfName) {
+			t.Fatalf("Sender name should be included in message\nGot %q",
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, testText) {
+			t.Fatalf("Result text should contain the message\nGot: %q",
+				gotText,
+			)
+		}
+
+		wantedGrouping := "<" + wantedGID1 + "> <" + wantedGID2 + ">"
+		if !strings.Contains(gotText, wantedGrouping) {
+			t.Fatalf("Result text should contain all user mentions\nGot: %q",
+				gotText,
+			)
 		}
 	})
 }

@@ -360,18 +360,20 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
-	if gl[saveName].IsPrivate {
-		gl[saveName].IsPrivate = false
-		gl[saveName].PrivacyRoomID = ""
+	group := gl[saveName]
 
-		go Logger.UpdatePrivacyDB(gl[saveName])
+	if group.IsPrivate {
+		group.IsPrivate = false
+		group.PrivacyRoomID = ""
+
+		go Logger.UpdatePrivacyDB(group)
 		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
 	}
 
-	gl[saveName].IsPrivate = true
-	gl[saveName].PrivacyRoomID = msgObj.Room.GID
+	group.IsPrivate = true
+	group.PrivacyRoomID = msgObj.Room.GID
 
-	go Logger.UpdatePrivacyDB(gl[saveName])
+	go Logger.UpdatePrivacyDB(group)
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
