@@ -711,11 +711,157 @@ func TestNotifyGroup(t *testing.T) {
 	})
 }
 
+func TestListGroups(t *testing.T) {
+	Logger.Active(false)
+
+	selfName := randString(10)
+	msgObj := messageResponse{
+		Message: message{
+			Sender: User{
+				Name: selfName,
+			},
+		},
+		Room: space{
+			GID:  genRoomGID(0),
+			Type: "ROOM",
+		},
+	}
+
+	t.Run("Lists multiple groups", func(t *testing.T) {
+		groupName1 := "group1"
+		groupName2 := "group2"
+		groupName3 := "group3"
+
+		Groups := make(GroupList)
+
+		Groups[groupName1] = &Group{Name: groupName1}
+		Groups[groupName2] = &Group{Name: groupName2}
+		Groups[groupName3] = &Group{Name: groupName3}
+
+		gotText := Groups.List("", msgObj)
+
+		if !strings.Contains(gotText, groupName1) ||
+			!strings.Contains(gotText, groupName2) ||
+			!strings.Contains(gotText, groupName3) {
+			t.Fatalf("Wanted groups not in list output\nGot: %q", gotText)
+		}
+	})
+
+	t.Run("List excludes private groups", func(t *testing.T) {
+		groupName1 := "group1"
+		groupName2 := "group2"
+		privateGroupName := "privategroup"
+
+		Groups := make(GroupList)
+
+		Groups[groupName1] = &Group{Name: groupName1}
+		Groups[groupName2] = &Group{Name: groupName2}
+		Groups[privateGroupName] = &Group{
+			Name:          privateGroupName,
+			IsPrivate:     true,
+			PrivacyRoomID: genRoomGID(0),
+		}
+
+		gotText := Groups.List("", msgObj)
+
+		if !strings.Contains(gotText, groupName1) || !strings.Contains(gotText, groupName2) {
+			t.Fatalf("Wanted groups not in list output\nGot: %q", gotText)
+		}
+
+		if strings.Contains(gotText, privateGroupName) {
+			t.Fatal("Should not contain private group in output")
+		}
+	})
+
+	t.Run("List includes private group in privacy room", func(t *testing.T) {
+		groupName1 := "group1"
+		groupName2 := "group2"
+		privateGroupName1 := "privategroup1"
+		privateGroupName2 := "privategroup2"
+
+		Groups := make(GroupList)
+
+		wantedPrivacyRoomID := genRoomGID(0)
+
+		Groups[groupName1] = &Group{Name: groupName1}
+		Groups[groupName2] = &Group{Name: groupName2}
+		Groups[privateGroupName1] = &Group{
+			Name:          privateGroupName1,
+			IsPrivate:     true,
+			PrivacyRoomID: wantedPrivacyRoomID,
+		}
+		Groups[privateGroupName2] = &Group{
+			Name:          privateGroupName2,
+			IsPrivate:     true,
+			PrivacyRoomID: genRoomGID(0),
+		}
+
+		msgObj.Room.GID = wantedPrivacyRoomID
+
+		gotText := Groups.List("", msgObj)
+
+		if !strings.Contains(gotText, groupName1) ||
+			!strings.Contains(gotText, groupName2) ||
+			!strings.Contains(gotText, privateGroupName1) {
+			t.Fatalf("Wanted groups not in list output\nGot: %q", gotText)
+		}
+
+		if strings.Contains(gotText, privateGroupName2) {
+			t.Fatal("Private groups from other rooms shouldn't show up in other rooms with privacy")
+		}
+	})
+
+	t.Run("Listing single group displays member information", func(t *testing.T) {
+		wantedGroupName := strings.ToLower(randString(10))
+		wantedName := randString(10)
+		wantedGID := genUserGID(0)
+
+		Groups := make(GroupList)
+		Groups[wantedGroupName] = &Group{
+			Name: wantedGroupName,
+			Members: []Member{{
+				Name: wantedName,
+				GID:  wantedGID,
+			}},
+		}
+
+		gotText := Groups.List(wantedGroupName, msgObj)
+
+		if !strings.Contains(gotText, wantedGroupName) ||
+			!strings.Contains(gotText, wantedName) ||
+			!strings.Contains(gotText, wantedGID) {
+			t.Fatal("Group detailed list doesn't contain proper information")
+		}
+	})
+
+	t.Run("Does not allow listing of a private group", func(t *testing.T) {
+		unWantedGroupName := strings.ToLower(randString(10))
+
+		Groups := make(GroupList)
+		Groups[unWantedGroupName] = &Group{
+			Name: unWantedGroupName,
+			Members: []Member{{
+				Name: genUserGID(0),
+				GID:  genRoomGID(0),
+			}},
+			IsPrivate:     true,
+			PrivacyRoomID: genRoomGID(0),
+		}
+
+		gotText := Groups.List(unWantedGroupName, msgObj)
+
+		if !strings.Contains(gotText, "you may not view it") {
+			t.Fatal("Should not be able to view private group")
+		}
+
+	})
+}
+
 //Test helper data
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-var seededRand *rand.Rand = rand.New(
+var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
 func StringWithCharset(length int, charset string) string {
