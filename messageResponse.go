@@ -142,13 +142,11 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 
 //inspectMessage method (maybe should be renamed) takes the parsed arguments
 //then reacts accordingly.
-func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
-	ok = true
+func inspectMessage(msgObj messageResponse) (retMsg, errMsg string) {
 
 	args, msg, okay := msgObj.parseArgs()
 	if !okay {
 		errMsg = msg
-		ok = false
 		return
 	}
 
@@ -157,11 +155,7 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
 
 	case "disband":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
-		} else {
-			retMsg = Groups.Disband(args["groupName"], msgObj)
-		}
+		retMsg = Groups.Disband(args["groupName"], msgObj)
 
 	case "add":
 		retMsg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
@@ -170,11 +164,7 @@ func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
 		retMsg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
 
 	case "restrict":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
-		} else {
-			retMsg = Groups.Restrict(args["groupName"], msgObj)
-		}
+		retMsg = Groups.Restrict(args["groupName"], msgObj)
 
 	case "notify":
 		retMsg = Groups.Notify(args["groupName"], msgObj)

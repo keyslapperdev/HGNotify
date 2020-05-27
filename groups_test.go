@@ -2,16 +2,13 @@ package main
 
 import (
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestCreateGroup(t *testing.T) {
-	_ = spew.Dump
-
 	Logger.Active(false)
 	Groups := make(GroupList)
 
@@ -129,8 +126,6 @@ func TestCreateGroup(t *testing.T) {
 }
 
 func TestDisbandGroup(t *testing.T) {
-	_ = spew.Dump
-
 	Logger.Active(false)
 	Groups := make(GroupList)
 
@@ -855,6 +850,22 @@ func TestListGroups(t *testing.T) {
 		}
 
 	})
+}
+
+func TestSyncGroup(t *testing.T) {
+	if tf := os.Getenv("RUN_INTEGRATION"); tf != "true" {
+		t.Skip("Must set env variable RUN_INTEGRATION to 'true' to run this test")
+	}
+
+	t.Skip("Not sure how to mock the DB out in the test as of now")
+}
+
+func TestSyncAllGroups(t *testing.T) {
+	if tf := os.Getenv("RUN_INTEGRATION"); tf != "true" {
+		t.Skip("Must set env variable RUN_INTEGRATION to 'true' to run this test")
+	}
+
+	t.Skip("Not sure how to mock the DB out in the test as of now")
 }
 
 //Test helper data

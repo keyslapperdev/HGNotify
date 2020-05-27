@@ -150,7 +150,12 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 //database. The removal from the database will also remove the associated member entries
 //something to be aware of.
 func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
+	}
+
 	saveName, meta := gl.checkGroup(groupName, msgObj)
+
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -166,7 +171,12 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 
 //AddMembers method adds a list of members to the specified group.
 func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
+	}
+
 	saveName, meta := gl.checkGroup(groupName, msgObj)
+
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}

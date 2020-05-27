@@ -79,9 +79,9 @@ func theHandler(w http.ResponseWriter, r *http.Request) {
 		go Logger.CreateLogEntry(msgObj)
 
 		var msg string
-		resMsg, errMsg, ok := inspectMessage(msgObj)
+		resMsg, errMsg := inspectMessage(msgObj)
 
-		if !ok {
+		if errMsg != "" {
 			msg = errMsg
 		} else {
 			msg = resMsg
