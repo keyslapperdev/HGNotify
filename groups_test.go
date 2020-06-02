@@ -1,18 +1,16 @@
 package main
 
 import (
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestCreateGroup(t *testing.T) {
 	Logger.Active(false)
-	Groups := make(GroupList)
+	Groups := make(GroupMap)
 
-	selfName := randString(5)
+	selfName := genRandName(5)
 	msgObj := messageResponse{
 		Message: message{
 			Sender: User{
@@ -28,7 +26,7 @@ func TestCreateGroup(t *testing.T) {
 	}
 
 	t.Run("Created new empty group", func(t *testing.T) {
-		newGroupName := randString(10)
+		newGroupName := genRandName(10)
 
 		Groups.Create(newGroupName, "", msgObj)
 		saveName := strings.ToLower(newGroupName)
@@ -47,7 +45,7 @@ func TestCreateGroup(t *testing.T) {
 		{
 			Called: userMention{
 				User: User{
-					Name: randString(10),
+					Name: genRandName(10),
 					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
@@ -57,7 +55,7 @@ func TestCreateGroup(t *testing.T) {
 		{
 			Called: userMention{
 				User: User{
-					Name: randString(10),
+					Name: genRandName(10),
 					GID:  genUserGID(0),
 					Type: "HUMAN",
 				},
@@ -68,7 +66,7 @@ func TestCreateGroup(t *testing.T) {
 
 	msgObj.Message.Mentions = wantedMentions
 
-	unwantedBotName := randString(10)
+	unwantedBotName := genRandName(10)
 	msgObj.Message.Mentions = append(msgObj.Message.Mentions, annotation{
 		Called: userMention{
 			User: User{
@@ -81,7 +79,7 @@ func TestCreateGroup(t *testing.T) {
 	})
 
 	t.Run("Creating Group with multiple members", func(t *testing.T) {
-		newGroupName := randString(10)
+		newGroupName := genRandName(10)
 
 		Groups.Create(newGroupName, "", msgObj)
 		saveName := strings.ToLower(newGroupName)
@@ -105,7 +103,7 @@ func TestCreateGroup(t *testing.T) {
 	})
 
 	t.Run("Creating group with self included", func(t *testing.T) {
-		newGroupName := randString(10)
+		newGroupName := genRandName(10)
 
 		Groups.Create(newGroupName, "self", msgObj)
 		saveName := strings.ToLower(newGroupName)
@@ -127,12 +125,12 @@ func TestCreateGroup(t *testing.T) {
 
 func TestDisbandGroup(t *testing.T) {
 	Logger.Active(false)
-	Groups := make(GroupList)
+	Groups := make(GroupMap)
 
-	saveName := strings.ToLower(randString(10))
+	saveName := strings.ToLower(genRandName(10))
 
 	msgObj := messageResponse{}
-	msgObj.IsMaster = false
+	msgObj.FromMaster = false
 
 	t.Run("Disband group successsfully", func(t *testing.T) {
 		group := new(Group)
@@ -166,7 +164,7 @@ func TestDisbandGroup(t *testing.T) {
 			}
 		}()
 
-		Groups := new(GroupList)
+		Groups := new(GroupMap)
 		Groups.Disband(saveName, msgObj)
 	})
 
@@ -175,14 +173,14 @@ func TestDisbandGroup(t *testing.T) {
 func TestAddMembers(t *testing.T) {
 	Logger.Active(false)
 
-	Groups := make(GroupList)
+	Groups := make(GroupMap)
 
-	saveName := strings.ToLower(randString(10))
+	saveName := strings.ToLower(genRandName(10))
 
 	Groups[saveName] = new(Group)
 	group := Groups[saveName]
 
-	selfName := randString(10)
+	selfName := genRandName(10)
 	msgObj := messageResponse{
 		Message: message{
 			Sender: User{
@@ -201,7 +199,7 @@ func TestAddMembers(t *testing.T) {
 	}
 
 	t.Run("Adds single member to group", func(t *testing.T) {
-		wantedName := randString(10)
+		wantedName := genRandName(10)
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
@@ -255,7 +253,7 @@ func TestAddMembers(t *testing.T) {
 
 		msgObj.Message.Mentions = wantedMentions
 
-		unwantedBotName := randString(10)
+		unwantedBotName := genRandName(10)
 		msgObj.Message.Mentions = append(msgObj.Message.Mentions, annotation{
 			Called: userMention{
 				User: User{
@@ -305,7 +303,7 @@ func TestAddMembers(t *testing.T) {
 	group.Members = nil
 
 	t.Run("Does not add same user twice", func(t *testing.T) {
-		wantedName := randString(10)
+		wantedName := genRandName(10)
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
@@ -332,7 +330,7 @@ func TestAddMembers(t *testing.T) {
 	group.Members = nil
 
 	t.Run("Does not add member to private group", func(t *testing.T) {
-		wantedName := randString(10)
+		wantedName := genRandName(10)
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
@@ -358,14 +356,14 @@ func TestAddMembers(t *testing.T) {
 func TestRemoveMembers(t *testing.T) {
 	Logger.Active(false)
 
-	Groups := make(GroupList)
+	Groups := make(GroupMap)
 
-	saveName := strings.ToLower(randString(10))
+	saveName := strings.ToLower(genRandName(10))
 
 	Groups[saveName] = new(Group)
 	group := Groups[saveName]
 
-	selfGID := randString(10)
+	selfGID := genRandName(10)
 	msgObj := messageResponse{
 		Message: message{
 			Sender: User{
@@ -387,7 +385,7 @@ func TestRemoveMembers(t *testing.T) {
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
-					Name: randString(10),
+					Name: genRandName(10),
 					GID:  memberGID,
 					Type: "HUMAN",
 				},
@@ -420,7 +418,7 @@ func TestRemoveMembers(t *testing.T) {
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
-					Name: randString(10),
+					Name: genRandName(10),
 					GID:  GIDToRemove,
 					Type: "HUMAN",
 				},
@@ -461,7 +459,7 @@ func TestRemoveMembers(t *testing.T) {
 			{
 				Called: userMention{
 					User: User{
-						Name: randString(10),
+						Name: genRandName(10),
 						GID:  unWantedMembers[0].GID,
 						Type: "HUMAN",
 					},
@@ -471,7 +469,7 @@ func TestRemoveMembers(t *testing.T) {
 			{
 				Called: userMention{
 					User: User{
-						Name: randString(10),
+						Name: genRandName(10),
 						GID:  unWantedMembers[1].GID,
 						Type: "HUMAN",
 					},
@@ -523,7 +521,7 @@ func TestRemoveMembers(t *testing.T) {
 		msgObj.Message.Mentions = []annotation{{
 			Called: userMention{
 				User: User{
-					Name: randString(10),
+					Name: genRandName(10),
 					GID:  unWantedGID,
 					Type: "HUMAN",
 				},
@@ -545,7 +543,7 @@ func TestRemoveMembers(t *testing.T) {
 func TestRestrictGroup(t *testing.T) {
 	Logger.Active(false)
 
-	saveName := strings.ToLower(randString(10))
+	saveName := strings.ToLower(genRandName(10))
 
 	wantedRoomGID := genRoomGID(0)
 	msgObj := messageResponse{
@@ -555,7 +553,7 @@ func TestRestrictGroup(t *testing.T) {
 	}
 
 	t.Run("Set room ID when toggling privacy", func(t *testing.T) {
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 		Groups[saveName] = new(Group)
 		group := Groups[saveName]
 
@@ -567,7 +565,7 @@ func TestRestrictGroup(t *testing.T) {
 	})
 
 	t.Run("Toggle Privacy properly", func(t *testing.T) {
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 		Groups[saveName] = new(Group)
 		group := Groups[saveName]
 
@@ -596,14 +594,14 @@ func TestRestrictGroup(t *testing.T) {
 func TestNotifyGroup(t *testing.T) {
 	Logger.Active(false)
 
-	Groups := make(GroupList)
+	Groups := make(GroupMap)
 
-	saveName := strings.ToLower(randString(10))
+	saveName := strings.ToLower(genRandName(10))
 
 	Groups[saveName] = new(Group)
 	group := Groups[saveName]
 
-	selfName := randString(10)
+	selfName := genRandName(10)
 	msgObj := messageResponse{
 		Message: message{
 			Sender: User{
@@ -709,7 +707,7 @@ func TestNotifyGroup(t *testing.T) {
 func TestListGroups(t *testing.T) {
 	Logger.Active(false)
 
-	selfName := randString(10)
+	selfName := genRandName(10)
 	msgObj := messageResponse{
 		Message: message{
 			Sender: User{
@@ -727,7 +725,7 @@ func TestListGroups(t *testing.T) {
 		groupName2 := "group2"
 		groupName3 := "group3"
 
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 
 		Groups[groupName1] = &Group{Name: groupName1}
 		Groups[groupName2] = &Group{Name: groupName2}
@@ -747,7 +745,7 @@ func TestListGroups(t *testing.T) {
 		groupName2 := "group2"
 		privateGroupName := "privategroup"
 
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 
 		Groups[groupName1] = &Group{Name: groupName1}
 		Groups[groupName2] = &Group{Name: groupName2}
@@ -774,7 +772,7 @@ func TestListGroups(t *testing.T) {
 		privateGroupName1 := "privategroup1"
 		privateGroupName2 := "privategroup2"
 
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 
 		wantedPrivacyRoomID := genRoomGID(0)
 
@@ -807,11 +805,11 @@ func TestListGroups(t *testing.T) {
 	})
 
 	t.Run("Listing single group displays member information", func(t *testing.T) {
-		wantedGroupName := strings.ToLower(randString(10))
-		wantedName := randString(10)
+		wantedGroupName := strings.ToLower(genRandName(10))
+		wantedName := genRandName(10)
 		wantedGID := genUserGID(0)
 
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 		Groups[wantedGroupName] = &Group{
 			Name: wantedGroupName,
 			Members: []Member{{
@@ -830,9 +828,9 @@ func TestListGroups(t *testing.T) {
 	})
 
 	t.Run("Does not allow listing of a private group", func(t *testing.T) {
-		unWantedGroupName := strings.ToLower(randString(10))
+		unWantedGroupName := strings.ToLower(genRandName(10))
 
-		Groups := make(GroupList)
+		Groups := make(GroupMap)
 		Groups[unWantedGroupName] = &Group{
 			Name: unWantedGroupName,
 			Members: []Member{{
@@ -866,39 +864,4 @@ func TestSyncAllGroups(t *testing.T) {
 	}
 
 	t.Skip("Not sure how to mock the DB out in the test as of now")
-}
-
-//Test helper data
-const charset = "abcdefghijklmnopqrstuvwxyz" +
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-var seededRand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func StringWithCharset(length int, charset string) string {
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-func randString(length int) string {
-	return StringWithCharset(length, charset)
-}
-
-func genUserGID(length int) string {
-	if length == 0 {
-		length = 10
-	} //Defaulting 10
-
-	return "users/" + StringWithCharset(length, "0123456789")
-}
-
-func genRoomGID(length int) string {
-	if length == 0 {
-		length = 10
-	} //Defaulting 10
-
-	return "spaces/" + StringWithCharset(length, "0123456789")
 }

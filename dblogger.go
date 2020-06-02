@@ -104,7 +104,7 @@ func (db *DBLogger) SaveMemberRemoval(group *Group, members []Member) {
 
 //GetGroupsFromDB method syncs the database groups to the in-memory group list
 //this is ran when the program starts up.
-func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
+func (db *DBLogger) GetGroupsFromDB(groupMap GroupMap) {
 	if db.isActive {
 		return
 	}
@@ -118,13 +118,13 @@ func (db *DBLogger) GetGroupsFromDB(groupList GroupList) {
 		group.Members = members
 
 		saveName := strings.ToLower(group.Name)
-		groupList[saveName] = group
+		groupMap[saveName] = group
 	}
 }
 
 //SyncAllGroups method syncs the database groups to the in-memory group list
 //during runtime. Just in case.
-func (db *DBLogger) SyncAllGroups(groups GroupList) {
+func (db *DBLogger) SyncAllGroups(groups GroupMap) {
 	if db.isActive {
 		return
 	}

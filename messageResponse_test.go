@@ -9,7 +9,7 @@ func TestParseArgs(t *testing.T) {
 	newMsgObj := messageResponse{
 		Message: message{
 			Sender: User{
-				Name: randString(10),
+				Name: genRandName(10),
 				GID:  genUserGID(0),
 				Type: "HUMAN",
 			},
@@ -21,7 +21,7 @@ func TestParseArgs(t *testing.T) {
 	}
 
 	t.Run("Action and Group args are parsed and returned", func(t *testing.T) {
-		wantedGroupName := randString(10)
+		wantedGroupName := genRandName(10)
 		msgObj := newMsgObj
 		actions := []string{"create", "add", "remove", "disband", "restrict", "list", "syncgroup", "syncallgroups", "usage", "help"}
 
@@ -50,7 +50,7 @@ func TestParseArgs(t *testing.T) {
 		msgObj.Room.Type = "DM"                 // Master only recognized via DM
 		msgObj.Message.Text = BotName + " list" // An action must be passed
 		msgObj.Message.Sender.GID = MasterID
-		msgObj.IsMaster = false
+		msgObj.FromMaster = false
 
 		_, msg, okay := msgObj.parseArgs()
 
@@ -58,13 +58,13 @@ func TestParseArgs(t *testing.T) {
 			t.Fatalf("Something went wrong: %q", msg)
 		}
 
-		if !msgObj.IsMaster {
+		if !msgObj.FromMaster {
 			t.Fatal("Message object is not noted as from the admin")
 		}
 	})
 
 	t.Run("Properly finds group name for notify", func(t *testing.T) {
-		wantedGroupName := strings.ToLower(randString(10))
+		wantedGroupName := strings.ToLower(genRandName(10))
 		msgObj := newMsgObj
 
 		t.Run("Notify within message", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestParseArgs(t *testing.T) {
 		})
 
 		t.Run("Notify in front of message", func(t *testing.T) {
-			Groups = make(GroupList)
+			Groups = make(GroupMap)
 			Groups[wantedGroupName] = new(Group) //Group must exist for this form
 			msgObj.Message.Text = BotName + " " + wantedGroupName + " Some test text"
 

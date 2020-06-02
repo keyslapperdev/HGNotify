@@ -15,10 +15,10 @@ type User struct {
 //messageResponse contains pretty much everything important to this
 //bot from gchat's payload
 type messageResponse struct {
-	Message  message `json:"message"`
-	Room     space   `json:"space"`
-	Time     string  `json:"eventTime"`
-	IsMaster bool
+	Message    message `json:"message"`
+	Room       space   `json:"space"`
+	Time       string  `json:"eventTime"`
+	FromMaster bool
 }
 
 type message struct {
@@ -44,13 +44,13 @@ type space struct {
 //parseArgs is a method used to take the string passed through the api and make
 //sense of it for the bot.
 func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
-	mr.IsMaster = false
+	mr.FromMaster = false
 	//The admin of the bot can be changed via configs, but they are defined by
 	//the id google gives them, incase their name changes, and how they reach out.
 	//i.e. The bot will only recognize the admin if messaged via DM. an admin
 	//shouldn't be doing admin things in front of the common folk.
 	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
-		mr.IsMaster = true
+		mr.FromMaster = true
 		//This prepends the botname to the message so that the admin doesn't have to
 		//@ the bot when DM-ing it. The conditional allows you to do either.
 		if !strings.HasPrefix(mr.Message.Text, BotName) {

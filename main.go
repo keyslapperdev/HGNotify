@@ -12,7 +12,7 @@ var (
 	Config   = loadConfig("secret/config.yml")
 	dbConfig = loadDBConfig("secret/dbconfig.yml")
 
-	Groups = make(GroupList)
+	Groups = make(GroupMap)
 	Logger = startDBLogger(dbConfig)
 )
 

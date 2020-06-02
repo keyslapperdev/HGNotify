@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/davecgh/go-spew/spew"
+	"helpers"
 )
 
 func checkError(e error) {
@@ -10,10 +10,27 @@ func checkError(e error) {
 	}
 }
 
-func describe(msg string, v ...interface{}) {
-	spew.Printf(msg, v...)
+//Test Helper data
+func genRandName(length int) string {
+	if length == 0 {
+		length = 10
+	} //Defaulting 10
+
+	return helpers.RandString(length)
 }
 
-func dump(v ...interface{}) {
-	spew.Dump(v...)
+func genUserGID(length int) string {
+	if length == 0 {
+		length = 10
+	} //Defaulting 10
+
+	return "users/" + helpers.StringWithCharset(length, "0123456789")
+}
+
+func genRoomGID(length int) string {
+	if length == 0 {
+		length = 10
+	} //Defaulting 10
+
+	return "spaces/" + helpers.StringWithCharset(length, "0123456789")
 }
