@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 //Initializing global variables
 var (
-	Config   = loadConfig("secret/config.yml")
-	dbConfig = loadDBConfig("secret/dbconfig.yml")
+	Config   = loadConfig(os.Getenv("HGNOTIFY_CONFIG"))
+	dbConfig = loadDBConfig(os.Getenv("HGNOTIFY_DB_CONFIG"))
 
 	Logger = startDBLogger(dbConfig)
 )

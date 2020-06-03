@@ -1,3 +1,4 @@
 *.sw*
 secret/
+.load.env
 hgnotify
