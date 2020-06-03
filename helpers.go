@@ -1,7 +1,8 @@
 package main
 
 import (
-	"helpers"
+	"math/rand"
+	"time"
 )
 
 func checkError(e error) {
@@ -10,13 +11,32 @@ func checkError(e error) {
 	}
 }
 
+//Test helper data
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+func StringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func RandString(length int) string {
+	return StringWithCharset(length, charset)
+}
+
 //Test Helper data
 func genRandName(length int) string {
 	if length == 0 {
 		length = 10
 	} //Defaulting 10
 
-	return helpers.RandString(length)
+	return RandString(length)
 }
 
 func genUserGID(length int) string {
@@ -24,7 +44,7 @@ func genUserGID(length int) string {
 		length = 10
 	} //Defaulting 10
 
-	return "users/" + helpers.StringWithCharset(length, "0123456789")
+	return "users/" + StringWithCharset(length, "0123456789")
 }
 
 func genRoomGID(length int) string {
@@ -32,5 +52,5 @@ func genRoomGID(length int) string {
 		length = 10
 	} //Defaulting 10
 
-	return "spaces/" + helpers.StringWithCharset(length, "0123456789")
+	return "spaces/" + StringWithCharset(length, "0123456789")
 }
