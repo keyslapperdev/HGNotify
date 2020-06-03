@@ -12,9 +12,21 @@ import (
 
 //GroupMap type is used to hold all group information in memory for
 //speedy interaction with the groups.
-type (
-	GroupMap map[string]*Group
-)
+type GroupMap map[string]*Group
+
+//GroupMgr is responsible for handling all actions for a specific group
+type GroupMgr interface {
+	Create(string, string, messageResponse) string
+	Disband(string, messageResponse) string
+	AddMembers(string, string, messageResponse) string
+	RemoveMembers(string, string, messageResponse) string
+	Restrict(string, messageResponse) string
+	Notify(string, messageResponse) string
+	List(string, messageResponse) string
+	SyncGroupMembers(string, messageResponse) string
+	SyncAllGroups(messageResponse) string
+	IsGroup(string) bool
+}
 
 //Group struct used to hold/model a group's structure. Note: Elements
 //with the `yaml:"-"` tag do not appear in the 'List' function
@@ -586,6 +598,20 @@ func (gm GroupMap) checkMember(groupName, memberID string) (here bool) {
 	return
 }
 
+//isGroup is a method created for the Notify method. This is what checks the string after
+//the bot's name call to check if it's a group. In the future, this will be called more than
+//once depending on if the preceeding string was a group. This would be support for notifying
+//multiple groups at once. That does seem like something useful, but not really at this time.
+func (gm GroupMap) IsGroup(groupName string) bool {
+	_, exists := gm[strings.ToLower(groupName)]
+
+	if exists {
+		return true
+	}
+
+	return false
+}
+
 //correctGP is a function that appropriately adds commas and the word "and" where needed
 //It's kinda gross, but it works :D
 func correctGP(members string, delta, lastNameLen int) (corrected string) {
@@ -626,18 +652,4 @@ func checkSeen() func(name string) bool {
 		seenMembers = append(seenMembers, name)
 		return false
 	}
-}
-
-//isGroup is a function created for the Notify method. This is what checks the string after
-//the bot's name call to check if it's a group. In the future, this will be called more than
-//once depending on if the preceeding string was a group. This would be support for notifying
-//multiple groups at once. That does seem like something useful, but not really at this time.
-func isGroup(groupName string) bool {
-	_, exists := Groups[strings.ToLower(groupName)]
-
-	if exists {
-		return true
-	}
-
-	return false
 }

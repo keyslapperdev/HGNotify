@@ -43,7 +43,7 @@ type space struct {
 
 //parseArgs is a method used to take the string passed through the api and make
 //sense of it for the bot.
-func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
+func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg string, ok bool) {
 	mr.FromMaster = false
 	//The admin of the bot can be changed via configs, but they are defined by
 	//the id google gives them, incase their name changes, and how they reach out.
@@ -86,7 +86,7 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "syncallgroups" &&
 			option != "usage" &&
 			option != "help" {
-			if isGroup(tempArgs[1]) {
+			if Groups.IsGroup(tempArgs[1]) {
 				args["action"] = "notify"
 				args["groupName"] = tempArgs[1]
 			} else {
@@ -142,55 +142,49 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 
 //inspectMessage method (maybe should be renamed) takes the parsed arguments
 //then reacts accordingly.
-func inspectMessage(msgObj messageResponse) (retMsg, errMsg string) {
-
-	args, msg, okay := msgObj.parseArgs()
-	if !okay {
-		errMsg = msg
-		return
-	}
+func inspectMessage(Groups GroupMgr, msgObj messageResponse, args Arguments) (msg string) {
 
 	switch args["action"] {
 	case "create":
-		retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
+		msg = Groups.Create(args["groupName"], args["self"], msgObj)
 
 	case "disband":
-		retMsg = Groups.Disband(args["groupName"], msgObj)
+		msg = Groups.Disband(args["groupName"], msgObj)
 
 	case "add":
-		retMsg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
+		msg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
 
 	case "remove":
-		retMsg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
+		msg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
 
 	case "restrict":
-		retMsg = Groups.Restrict(args["groupName"], msgObj)
+		msg = Groups.Restrict(args["groupName"], msgObj)
 
 	case "notify":
-		retMsg = Groups.Notify(args["groupName"], msgObj)
+		msg = Groups.Notify(args["groupName"], msgObj)
 
 	case "list":
-		retMsg = Groups.List(args["groupName"], msgObj)
+		msg = Groups.List(args["groupName"], msgObj)
 
 	case "syncgroup":
-		retMsg = Groups.SyncGroupMembers(args["groupName"], msgObj)
+		msg = Groups.SyncGroupMembers(args["groupName"], msgObj)
 
 	case "syncallgroups":
-		retMsg = Groups.SyncAllGroups(msgObj)
+		msg = Groups.SyncAllGroups(msgObj)
 
 	case "usageShort":
-		retMsg = usage("usageShort")
+		msg = usage("usageShort")
 
 	case "usage":
-		retMsg = getUsageWithLink(usage(""))
+		msg = getUsageWithLink(usage(""))
 
 	case "help":
-		retMsg = usage("")
+		msg = usage("")
 
 	default:
 		//All of the argument things should be taken care of by the time we get here,
 		//BUT It's better to handle the exceptions than let them bite you.
-		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
+		msg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
 	}
 
 	return

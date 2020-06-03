@@ -12,7 +12,6 @@ var (
 	Config   = loadConfig("secret/config.yml")
 	dbConfig = loadDBConfig("secret/dbconfig.yml")
 
-	Groups = make(GroupMap)
 	Logger = startDBLogger(dbConfig)
 )
 
@@ -39,69 +38,73 @@ type (
 )
 
 func main() {
+	Groups := make(GroupMap)
+
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
 
 	fmt.Println("Running!! on port " + port)
 
-	http.HandleFunc("/", theHandler)
+	http.HandleFunc("/", getRequestHandler(Groups))
 	e := http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
 	checkError(e)
 }
 
-func theHandler(w http.ResponseWriter, r *http.Request) {
-	var (
-		payload  GenericJSON
-		msgObj   messageResponse
-		jsonReq  []byte
-		jsonResp []byte
-		e        error
-	)
+func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var (
+			payload  GenericJSON
+			msgObj   messageResponse
+			jsonReq  []byte
+			jsonResp []byte
+			e        error
+		)
 
-	jsonReq, e = ioutil.ReadAll(r.Body)
-	checkError(e)
-
-	e = json.Unmarshal(jsonReq, &payload)
-	checkError(e)
-
-	switch payload["type"] {
-	case "ADDED_TO_SPACE":
-		resp := map[string]string{
-			"text": "Thank you for inviting me! Here's what I'm about:" + usage(""),
-		}
-		jsonResp, e = json.Marshal(resp)
-
-	case "MESSAGE":
-		e = json.Unmarshal(jsonReq, &msgObj)
+		jsonReq, e = ioutil.ReadAll(r.Body)
 		checkError(e)
 
-		//Log every usage of hgnotify to the db.
-		go Logger.CreateLogEntry(msgObj)
+		e = json.Unmarshal(jsonReq, &payload)
+		checkError(e)
 
-		var msg string
-		resMsg, errMsg := inspectMessage(msgObj)
+		switch payload["type"] {
+		case "ADDED_TO_SPACE":
+			resp := map[string]string{
+				"text": "Thank you for inviting me! Here's what I'm about:" + usage(""),
+			}
+			jsonResp, e = json.Marshal(resp)
 
-		if errMsg != "" {
-			msg = errMsg
-		} else {
-			msg = resMsg
+		case "MESSAGE":
+			e = json.Unmarshal(jsonReq, &msgObj)
+			checkError(e)
+
+			//Log every usage of hgnotify to the db.
+			go Logger.CreateLogEntry(msgObj)
+
+			var msg string
+
+			args, errMsg, okay := msgObj.ParseArgs(Groups)
+			if okay {
+				msg = inspectMessage(Groups, msgObj, args)
+			} else {
+				msg = errMsg
+			}
+
+			resp := map[string]string{
+				"text": msg,
+			}
+			jsonResp, e = json.Marshal(resp)
+
+		default:
+			//Not too sure of any message type that's not Added or Message, there is removed
+			//But that one doesn't allow messages to be sent, sooooooooo?
+			resp := map[string]string{
+				"text": "Oh, ummm! I'm not exactly sure what happened, or what type of request this is. But here's what I was made to do, if it helps." + usage(""),
+			}
+			jsonResp, e = json.Marshal(resp)
 		}
 
-		resp := map[string]string{
-			"text": msg,
-		}
-		jsonResp, e = json.Marshal(resp)
-
-	default:
-		//Not too sure of any message type that's not Added or Message, there is removed
-		//But that one doesn't allow messages to be sent, sooooooooo?
-		resp := map[string]string{
-			"text": "Oh, ummm! I'm not exactly sure what happened, or what type of request this is. But here's what I was made to do, if it helps." + usage(""),
-		}
-		jsonResp, e = json.Marshal(resp)
+		fmt.Fprintf(w, "%s", string(jsonResp))
 	}
-
-	fmt.Fprintf(w, "%s", string(jsonResp))
 }
 
 func usage(option string) string {

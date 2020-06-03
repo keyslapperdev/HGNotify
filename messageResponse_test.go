@@ -21,13 +21,14 @@ func TestParseArgs(t *testing.T) {
 	}
 
 	t.Run("Action and Group args are parsed and returned", func(t *testing.T) {
+		Groups := make(GroupMap)
 		wantedGroupName := genRandName(10)
 		msgObj := newMsgObj
 		actions := []string{"create", "add", "remove", "disband", "restrict", "list", "syncgroup", "syncallgroups", "usage", "help"}
 
 		for _, wantedAction := range actions {
 			msgObj.Message.Text = BotName + " " + wantedAction + " " + wantedGroupName
-			args, msg, okay := msgObj.parseArgs()
+			args, msg, okay := msgObj.ParseArgs(Groups)
 
 			if !okay {
 				t.Fatalf("Error parsing argument %q: %s", wantedAction, msg)
@@ -44,6 +45,7 @@ func TestParseArgs(t *testing.T) {
 	})
 
 	t.Run("Properly identifies as from admin", func(t *testing.T) {
+		Groups := make(GroupMap)
 		msgObj := newMsgObj
 		MasterID = genUserGID(0)
 
@@ -52,7 +54,7 @@ func TestParseArgs(t *testing.T) {
 		msgObj.Message.Sender.GID = MasterID
 		msgObj.FromMaster = false
 
-		_, msg, okay := msgObj.parseArgs()
+		_, msg, okay := msgObj.ParseArgs(Groups)
 
 		if !okay {
 			t.Fatalf("Something went wrong: %q", msg)
@@ -64,13 +66,14 @@ func TestParseArgs(t *testing.T) {
 	})
 
 	t.Run("Properly finds group name for notify", func(t *testing.T) {
+		Groups := make(GroupMap)
 		wantedGroupName := strings.ToLower(genRandName(10))
 		msgObj := newMsgObj
 
 		t.Run("Notify within message", func(t *testing.T) {
 			msgObj.Message.Text = "Some before text " + BotName + " " + wantedGroupName + " Some test text"
 
-			args, msg, okay := msgObj.parseArgs()
+			args, msg, okay := msgObj.ParseArgs(Groups)
 
 			if !okay {
 				t.Fatalf("Something went wrong: %q", msg)
@@ -82,11 +85,11 @@ func TestParseArgs(t *testing.T) {
 		})
 
 		t.Run("Notify in front of message", func(t *testing.T) {
-			Groups = make(GroupMap)
+			Groups := make(GroupMap)
 			Groups[wantedGroupName] = new(Group) //Group must exist for this form
 			msgObj.Message.Text = BotName + " " + wantedGroupName + " Some test text"
 
-			args, msg, okay := msgObj.parseArgs()
+			args, msg, okay := msgObj.ParseArgs(Groups)
 
 			if !okay {
 				t.Fatalf("Something went wrong: %q", msg)
@@ -99,11 +102,12 @@ func TestParseArgs(t *testing.T) {
 	})
 
 	t.Run("Properly notes self when provided", func(t *testing.T) {
+		Groups := make(GroupMap)
 		msgObj := newMsgObj
 
 		msgObj.Message.Text = BotName + " add groupName Self"
 
-		args, msg, okay := msgObj.parseArgs()
+		args, msg, okay := msgObj.ParseArgs(Groups)
 
 		if !okay {
 			t.Fatalf("Something went wrong: %q", msg)
@@ -114,3 +118,81 @@ func TestParseArgs(t *testing.T) {
 		}
 	})
 }
+
+func TestInspectMessage(t *testing.T) {
+	newMsgObj := messageResponse{
+		Message: message{
+			Sender: User{
+				Name: genRandName(10),
+				GID:  genUserGID(0),
+				Type: "HUMAN",
+			},
+		},
+		Room: space{
+			GID:  genRoomGID(0),
+			Type: "ROOM",
+		},
+	}
+
+	actions := []string{"notify", "create", "add", "remove", "disband", "restrict", "list", "syncgroup", "syncallgroups"}
+
+	t.Run("Correctly calls method for given action", func(t *testing.T) {
+		for _, action := range actions {
+			MockGroups := MockGroupMap{}
+			msgObj := newMsgObj
+			args := make(Arguments)
+
+			args["action"] = action
+
+			inspectMessage(MockGroups, msgObj, args)
+
+			_, Called := MockGroups[action]
+			if !Called {
+				t.Fatalf("Groups not called for action %q\nGot: %+v", action, MockGroups)
+			}
+		}
+	})
+}
+
+// Test helper funcs
+type MockGroupMap map[string]bool
+
+func (mgm MockGroupMap) Create(string, string, messageResponse) string {
+	mgm["create"] = true
+	return ""
+}
+func (mgm MockGroupMap) Disband(string, messageResponse) string {
+	mgm["disband"] = true
+	return ""
+}
+func (mgm MockGroupMap) AddMembers(string, string, messageResponse) string {
+	mgm["add"] = true
+	return ""
+}
+func (mgm MockGroupMap) RemoveMembers(string, string, messageResponse) string {
+	mgm["remove"] = true
+	return ""
+}
+func (mgm MockGroupMap) Restrict(string, messageResponse) string {
+	mgm["restrict"] = true
+	return ""
+}
+func (mgm MockGroupMap) Notify(string, messageResponse) string {
+	mgm["notify"] = true
+	return ""
+}
+func (mgm MockGroupMap) List(string, messageResponse) string {
+	mgm["list"] = true
+	return ""
+}
+func (mgm MockGroupMap) SyncGroupMembers(string, messageResponse) string {
+	mgm["syncgroup"] = true
+	return ""
+}
+func (mgm MockGroupMap) SyncAllGroups(messageResponse) string {
+	mgm["syncallgroups"] = true
+	return ""
+}
+
+//Unused, just needs to exist for the interface
+func (mgm MockGroupMap) IsGroup(string) bool { return true }
