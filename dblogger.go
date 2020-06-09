@@ -26,6 +26,7 @@ type NotifyLog struct {
 
 //startDBLogger is used to intialize the logger
 func startDBLogger(conf DBConfig) DBLogger {
+	return DBLogger{isActive: false}
 	//I format everything with gofmt. Because of the colon after DBUser
 	//makes gofmt think the lower lines are apart of switch case statement.
 	//Hence the weird indention. I'd rather everything be formatted as gofmt
@@ -46,7 +47,7 @@ func startDBLogger(conf DBConfig) DBLogger {
 //ensure all databases are created and updated as they should be.
 //If everything is fine, this is only ran once, ever.
 func (db *DBLogger) SetupTables() {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	db.AutoMigrate(&Group{}, &Member{}, &NotifyLog{})
@@ -56,7 +57,7 @@ func (db *DBLogger) SetupTables() {
 //SaveCreatedGroup method is used to update the database whenever
 //a new group is created
 func (db *DBLogger) SaveCreatedGroup(group *Group) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	db.Create(group)
@@ -65,7 +66,7 @@ func (db *DBLogger) SaveCreatedGroup(group *Group) {
 //DisbandGroup method will delete a group's entry from the database,
 //along with all the associated users.
 func (db *DBLogger) DisbandGroup(group *Group) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	db.Unscoped().Delete(group)
@@ -76,7 +77,7 @@ func (db *DBLogger) DisbandGroup(group *Group) {
 //values entered into the database are "zero value", so gorm ignores them.
 //To get them to set the zero value I have to be specific with the query.
 func (db *DBLogger) UpdatePrivacyDB(group *Group) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	db.Model(group).Select("is_private").Update("IsPrivate", group.IsPrivate)
@@ -85,7 +86,7 @@ func (db *DBLogger) UpdatePrivacyDB(group *Group) {
 
 //SaveMemberAddition method adds a member to the associated group
 func (db *DBLogger) SaveMemberAddition(group *Group) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	db.Model(group).Update(group)
@@ -94,7 +95,7 @@ func (db *DBLogger) SaveMemberAddition(group *Group) {
 //SaveMemberRemoval method marks the assocaited memeber as removed from
 //the group.
 func (db *DBLogger) SaveMemberRemoval(group *Group, members []Member) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	for _, member := range members {
@@ -105,7 +106,7 @@ func (db *DBLogger) SaveMemberRemoval(group *Group, members []Member) {
 //GetGroupsFromDB method syncs the database groups to the in-memory group list
 //this is ran when the program starts up.
 func (db *DBLogger) GetGroupsFromDB(groupMap GroupMap) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 	var foundGroups []*Group
@@ -125,7 +126,7 @@ func (db *DBLogger) GetGroupsFromDB(groupMap GroupMap) {
 //SyncAllGroups method syncs the database groups to the in-memory group list
 //during runtime. Just in case.
 func (db *DBLogger) SyncAllGroups(groups GroupMap) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 
@@ -148,7 +149,7 @@ func (db *DBLogger) SyncAllGroups(groups GroupMap) {
 //SyncGroup method syncs the members in an in-memory group to the database entries
 //this can be done during runtime. Just in case.
 func (db *DBLogger) SyncGroup(group *Group) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 
@@ -160,7 +161,7 @@ func (db *DBLogger) SyncGroup(group *Group) {
 
 //CreateLogEntry method logs usage of the bot to the database.
 func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
-	if db.isActive {
+	if !db.isActive {
 		return
 	}
 
