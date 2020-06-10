@@ -10,19 +10,20 @@ import (
 type HGNConfig struct {
 	CertFile    string `yaml:"certFile"`
 	CertKeyFile string `yaml:"certKeyFile"`
+	UseSSL      bool   `yaml:"useSSL"`
 
 	BotName  string `yaml:"botName"`
 	MasterID string `yaml:"masterID"`
 
-	Port string `yaml:"port"`
-
-	UseSSL bool `yaml:"useSSL"`
+	Port  string `yaml:"port"`
+	Route string `yaml:"route"`
 }
 
 //DBConfig struct used to consume Configuration details
 //regarding database access
 type DBConfig struct {
 	Driver string `yaml:"driver"`
+	DBHost string `yaml:"host"`
 	DBUser string `yaml:"user"`
 	DBName string `yaml:"name"`
 	DBPass string `yaml:"password"`

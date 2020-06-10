@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -30,12 +31,14 @@ func startDBLogger(conf DBConfig) DBLogger {
 	//makes gofmt think the lower lines are apart of switch case statement.
 	//Hence the weird indention. I'd rather everything be formatted as gofmt
 	//dictates than not. /shrug
-	db, err := gorm.Open(
-		conf.Driver,
-		conf.DBUser+":"+
-			conf.DBPass+"@/"+
-			conf.DBName+"?"+
-			conf.DBOpts)
+	db, err := gorm.Open(conf.Driver, fmt.Sprintf(
+		"%s:%s@(%s)/%s?%s",
+		conf.DBUser,
+		conf.DBPass,
+		conf.DBHost,
+		conf.DBName,
+		conf.DBOpts,
+	))
 
 	checkError(err)
 
