@@ -153,7 +153,7 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 
 	go Logger.DisbandGroup(gl[saveName])
 	delete(gl, saveName)
-	return fmt.Sprintf("Group %q has been deleted, along with all it data.", groupName)
+	return fmt.Sprintf("Group %q has been deleted, along with all its data.", groupName)
 }
 
 //AddMembers method adds a list of members to the specified group.
