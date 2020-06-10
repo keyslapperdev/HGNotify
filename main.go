@@ -10,10 +10,9 @@ import (
 
 //Initializing global variables
 var (
-	Config   = loadConfig(os.Getenv("HGNOTIFY_CONFIG"))
-	dbConfig = loadDBConfig(os.Getenv("HGNOTIFY_DB_CONFIG"))
+	Config = loadConfig(os.Getenv("HGNOTIFY_CONFIG"))
 
-	Logger = startDBLogger(dbConfig)
+	Logger = startDBLogger(loadDBConfig(os.Getenv("HGNOTIFY_DB_CONFIG")))
 )
 
 //Setting up general configurations for usage of the bot
@@ -46,9 +45,16 @@ func main() {
 
 	fmt.Println("Running!! on port " + port)
 
+	var err error
+
 	http.HandleFunc("/", getRequestHandler(Groups))
-	e := http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
-	checkError(e)
+	if Config.UseSSL {
+		err = http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
+	} else {
+		err = http.ListenAndServe(port, nil)
+	}
+
+	checkError(err)
 }
 
 func getRequestHandler(Groups GroupMgr) http.HandlerFunc {

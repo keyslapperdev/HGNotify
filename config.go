@@ -15,6 +15,8 @@ type HGNConfig struct {
 	MasterID string `yaml:"masterID"`
 
 	Port string `yaml:"port"`
+
+	UseSSL bool `yaml:"useSSL"`
 }
 
 //DBConfig struct used to consume Configuration details

@@ -26,7 +26,6 @@ type NotifyLog struct {
 
 //startDBLogger is used to intialize the logger
 func startDBLogger(conf DBConfig) DBLogger {
-	return DBLogger{isActive: false}
 	//I format everything with gofmt. Because of the colon after DBUser
 	//makes gofmt think the lower lines are apart of switch case statement.
 	//Hence the weird indention. I'd rather everything be formatted as gofmt
