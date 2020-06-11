@@ -15,9 +15,11 @@ type User struct {
 //messageResponse contains pretty much everything important to this
 //bot from gchat's payload
 type messageResponse struct {
-	Message    message `json:"message"`
-	Room       space   `json:"space"`
-	Time       string  `json:"eventTime"`
+	Message message `json:"message"`
+	Room    space   `json:"space"`
+	Time    string  `json:"eventTime"`
+	Type    string  `json:"type"`
+
 	FromMaster bool
 }
 

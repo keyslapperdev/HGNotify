@@ -27,16 +27,11 @@ var (
 	MasterID = Config.MasterID
 )
 
-type (
-	//GenericJSON holds type for general JSON objects
-	GenericJSON map[string]interface{}
-
-	//Arguments is generic type for passing arguments as a map
-	//between functions. I feel this is kinda an artifact of
-	//learing perl as my first language, but it sure does make
-	//things a bit more clear.
-	Arguments map[string]string
-)
+//Arguments is generic type for passing arguments as a map
+//between functions. I feel this is kinda an artifact of
+//learing perl as my first language, but it sure does make
+//things a bit more clear.
+type Arguments map[string]string
 
 func main() {
 	Groups := make(GroupMap)
@@ -61,7 +56,6 @@ func main() {
 func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var (
-			payload  GenericJSON
 			msgObj   messageResponse
 			jsonReq  []byte
 			jsonResp []byte
@@ -71,10 +65,10 @@ func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
 		jsonReq, e = ioutil.ReadAll(r.Body)
 		checkError(e)
 
-		e = json.Unmarshal(jsonReq, &payload)
+		e = json.Unmarshal(jsonReq, &msgObj)
 		checkError(e)
 
-		switch payload["type"] {
+		switch msgObj.Type {
 		case "ADDED_TO_SPACE":
 			resp := map[string]string{
 				"text": "Thank you for inviting me! Here's what I'm about:" + usage(""),
@@ -82,9 +76,6 @@ func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
 			jsonResp, e = json.Marshal(resp)
 
 		case "MESSAGE":
-			e = json.Unmarshal(jsonReq, &msgObj)
-			checkError(e)
-
 			//Log every usage of hgnotify to the db.
 			go Logger.CreateLogEntry(msgObj)
 
