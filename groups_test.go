@@ -614,7 +614,6 @@ func TestNotifyGroup(t *testing.T) {
 		},
 	}
 
-	BotName = "@TestBot"
 	testText := " test text."
 
 	t.Run("Group with single user notified", func(t *testing.T) {

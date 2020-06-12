@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +17,7 @@ func TestRequestHandler(t *testing.T) {
 	server := httptest.NewServer(getRequestHandler(GroupMap{}))
 
 	t.Run("Correctly responds when added to room", func(t *testing.T) {
-		data := bytes.NewBuffer([]byte(`{
+		data := bytes.NewBuffer([]byte(fmt.Sprintf(`{
   "type": "ADDED_TO_SPACE",
   "eventTime": "2020-06-11T00:41:07.457887Z",
   "message": {
@@ -30,7 +31,7 @@ func TestRequestHandler(t *testing.T) {
       "domainId": "domainId"
     },
     "createTime": "2020-06-11T00:41:07.457887Z",
-    "text": "@DevelopmentHGNotify",
+    "text": "%s",
     "space": {
       "name": "spaces/spaceName",
       "type": "ROOM",
@@ -38,7 +39,7 @@ func TestRequestHandler(t *testing.T) {
       "threaded": true
     }
   }
-}`))
+}`, BotName)))
 
 		resp, err := http.Post(server.URL, contentType, data)
 		if err != nil {
@@ -59,7 +60,7 @@ func TestRequestHandler(t *testing.T) {
 	})
 
 	t.Run("Correctly responds when messaged", func(t *testing.T) {
-		data := bytes.NewBuffer([]byte(`{
+		data := bytes.NewBuffer([]byte(fmt.Sprintf(`{
   "type": "MESSAGE",
   "eventTime": "2020-06-11T00:41:07.457887Z",
   "message": {
@@ -73,7 +74,7 @@ func TestRequestHandler(t *testing.T) {
       "domainId": "domainId"
     },
     "createTime": "2020-06-11T00:41:07.457887Z",
-    "text": "@DevelopmentHGNotify list",
+    "text": "%s",
     "space": {
       "name": "spaces/spaceName",
       "type": "ROOM",
@@ -81,7 +82,7 @@ func TestRequestHandler(t *testing.T) {
       "threaded": true
     }
   }
-}`))
+}`, BotName)))
 
 		resp, err := http.Post(server.URL, contentType, data)
 		if err != nil {
@@ -95,7 +96,7 @@ func TestRequestHandler(t *testing.T) {
 		respText, _ := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
 
-		if !strings.Contains(string(respText), "no groups to show") {
+		if !strings.Contains(string(respText), "called with no params") {
 			t.Fatalf("Incorrect message returned\nGot %q", string(respText))
 		}
 
