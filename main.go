@@ -18,8 +18,8 @@ var (
 	CertFile    = Config.CertFile
 	CertKeyFile = Config.CertKeyFile
 
-	route = Config.Route
-	port  = Config.Port
+	baseRoute = Config.Route
+	port      = Config.Port
 
 	BotName  = Config.BotName
 	MasterID = Config.MasterID
@@ -41,7 +41,9 @@ func main() {
 
 	var err error
 
-	http.HandleFunc(route, getRequestHandler(Groups))
+	http.HandleFunc(baseRoute, getRequestHandler(Groups))
+	http.HandleFunc(baseRoute+"readiness/", ReadinessCheck())
+
 	if Config.UseSSL {
 		err = http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
 	} else {

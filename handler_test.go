@@ -103,3 +103,28 @@ func TestRequestHandler(t *testing.T) {
 	})
 
 }
+
+func TestReadinessCheck(t *testing.T) {
+	server := httptest.NewServer(ReadinessCheck())
+
+	t.Run("Readiness Check", func(t *testing.T) {
+		resp, err := http.Get(server.URL)
+		if err != nil {
+			t.Fatalf("Error getting readiness route: %q", err.Error())
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Incorrect status code\nWanted: %d\nGot: %d",
+				http.StatusOK,
+				resp.StatusCode,
+			)
+		}
+
+		respText, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+
+		if !strings.Contains(string(respText), "{}") {
+			t.Fatalf("Incorrect text returned\nGot %q", string(respText))
+		}
+	})
+}

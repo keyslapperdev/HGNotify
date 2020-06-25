@@ -59,3 +59,10 @@ func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
 		fmt.Fprintf(w, "%s", string(jsonResp))
 	}
 }
+
+func ReadinessCheck() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}
+}
