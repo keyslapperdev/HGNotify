@@ -1,0 +1,17 @@
+version: '3'
+services:
+  app:
+    build: .
+    depends_on:
+        - "db"
+    ports:
+        - "8888:8888"
+  db:
+    image: "mysql:5.7"
+    ports:
+      - "3306:3306"
+    environment:
+       MYSQL_ROOT_PASSWORD: "TEST_PASSWORD"
+       MYSQL_DATABASE: "hgnotify_beta"
+       MYSQL_USER: "beta_user"
+       MYSQL_PASSWORD: "TEST_PASSWORD"
