@@ -1,7 +1,6 @@
 FROM golang:alpine
 RUN mkdir /app
 ADD . /app/
-ADD ./secret/* /app/secret/
 WORKDIR /app
 ENV HGNOTIFY_CONFIG /app/secret/config.yml
 ENV HGNOTIFY_DB_CONFIG /app/secret/dbconfig.yml

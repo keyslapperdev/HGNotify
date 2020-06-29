@@ -12,12 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 )
-
-var _ = spew.Dump
-var _ = fmt.Print
 
 func TestEndToEnd(t *testing.T) {
 	// I will note. There are sleeps thrown about in the following tests
