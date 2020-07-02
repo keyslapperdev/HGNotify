@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 )
 
 //Initializing global variables
 var (
-	Config = loadConfig(os.Getenv("HGNOTIFY_CONFIG"))
+	Config = initConfig()
 
-	Logger = startDBLogger(loadDBConfig(os.Getenv("HGNOTIFY_DB_CONFIG")))
+	Logger = startDBLogger(initDBConfig())
 )
 
 //Setting up general configurations for usage of the bot
@@ -18,11 +17,11 @@ var (
 	CertFile    = Config.CertFile
 	CertKeyFile = Config.CertKeyFile
 
-	baseRoute = Config.Route
-	port      = Config.Port
-
 	BotName  = Config.BotName
 	MasterID = Config.MasterID
+
+	baseRoute = "/"
+	port      = ":8000"
 )
 
 //Arguments is generic type for passing arguments as a map
@@ -44,7 +43,7 @@ func main() {
 	http.HandleFunc(baseRoute, getRequestHandler(Groups))
 	http.HandleFunc(baseRoute+"readiness/", ReadinessCheck())
 
-	if Config.UseSSL {
+	if Config.UseSSL == "true" {
 		err = http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
 	} else {
 		err = http.ListenAndServe(port, nil)
