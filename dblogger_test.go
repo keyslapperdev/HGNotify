@@ -15,7 +15,7 @@ func TestSetupTables(t *testing.T) {
 		gotTables := make([]struct{ TableName string }, 0)
 		db.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = 'hgnotify_beta';").Scan(&gotTables)
 
-		wantedTables := []string{"notify_logs", "members", "groups"}
+		wantedTables := []string{"notify_logs", "members", "groups", "schedules"}
 
 		for _, wantedTable := range wantedTables {
 			var found bool

@@ -52,7 +52,7 @@ func (db *DBLogger) SetupTables() {
 	if !db.isActive {
 		return
 	}
-	db.AutoMigrate(&Group{}, &Member{}, &NotifyLog{})
+	db.AutoMigrate(&Group{}, &Member{}, &NotifyLog{}, &Schedule{})
 	db.Model(&Member{}).AddForeignKey("group_id", "groups(id)", "CASCADE", "RESTRICT")
 }
 
