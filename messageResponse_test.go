@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseArgs(t *testing.T) {
@@ -41,6 +43,63 @@ func TestParseArgs(t *testing.T) {
 			if args["groupName"] != wantedGroupName {
 				t.Fatal("Group name not returned")
 			}
+		}
+	})
+
+	t.Run("Schedule onetime parsed and returned", func(t *testing.T) {
+		Groups := make(GroupMap)
+		msgObj := newMsgObj
+		wantedAction := "schedule"
+		wantedSubAction := "onetime"
+		wantedLabel := RandString(10)
+		wantedDatetime := time.Now().Add(time.Hour).Format(time.RFC3339)
+		wantedGroupName := genRandName(10)
+
+		Groups[strings.ToLower(wantedGroupName)] = new(Group)
+
+		msgObj.Message.Text = fmt.Sprintf("%s %s %s %s %v %s some message",
+			BotName, wantedAction, wantedSubAction,
+			wantedLabel, wantedDatetime, wantedGroupName,
+		)
+		args, msg, okay := msgObj.ParseArgs(Groups)
+
+		if !okay {
+			t.Fatalf("Error parsing schedule onetime request: %s", msg)
+		}
+
+		if args["action"] != wantedAction {
+			t.Fatalf("Action %q not returned, got: %q",
+				wantedAction,
+				args["action"],
+			)
+		}
+
+		if args["subAction"] != wantedSubAction {
+			t.Fatalf("Sub action %q not returned, got: %q",
+				wantedSubAction,
+				args["subAction"],
+			)
+		}
+
+		if args["label"] != wantedLabel {
+			t.Fatalf("Label %q not returned, got: %q",
+				wantedLabel,
+				args["label"],
+			)
+		}
+
+		if args["dateTime"] != wantedDatetime {
+			t.Fatalf("DateTime %q not returned, got: %q",
+				wantedDatetime,
+				args["dateTime"],
+			)
+		}
+
+		if args["groupName"] != wantedGroupName {
+			t.Fatalf("Group Name %q not returned, got: %q",
+				wantedGroupName,
+				args["groupName"],
+			)
 		}
 	})
 

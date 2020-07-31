@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 )
 
 //User struct defines a user in the context of google's chat api
@@ -86,6 +88,7 @@ func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg strin
 			option != "list" &&
 			option != "syncgroup" &&
 			option != "syncallgroups" &&
+			option != "schedule" &&
 			option != "usage" &&
 			option != "help" {
 			if Groups.IsGroup(tempArgs[1]) {
@@ -97,15 +100,24 @@ func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg strin
 			}
 		} else {
 			args["action"] = option
-
-			if nArgs < 3 {
-				args["groupName"] = ""
-			} else {
-				args["groupName"] = tempArgs[2]
-			}
 		}
 	} else {
 		args["action"] = "notify"
+	}
+
+	if args["action"] == "schedule" {
+		err := parseScheduleArgs(Groups, tempArgs, &args)
+		if err != nil {
+			ok = false
+			msg = err.Error()
+			return
+		}
+	} else {
+		if nArgs < 3 {
+			args["groupName"] = ""
+		} else {
+			args["groupName"] = tempArgs[2]
+		}
 	}
 
 	//Logic introduced for adding/removing yourself from a group
@@ -145,7 +157,6 @@ func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg strin
 //inspectMessage method (maybe should be renamed) takes the parsed arguments
 //then reacts accordingly.
 func inspectMessage(Groups GroupMgr, msgObj messageResponse, args Arguments) (msg string) {
-
 	switch args["action"] {
 	case "create":
 		msg = Groups.Create(args["groupName"], args["self"], msgObj)
@@ -190,4 +201,41 @@ func inspectMessage(Groups GroupMgr, msgObj messageResponse, args Arguments) (ms
 	}
 
 	return
+}
+
+func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
+	if len(elems) < 7 {
+		return fmt.Errorf("Not enough arguments for schedule action\n ```%s``` ", usage("onetime"))
+	}
+
+	if elems[2] != "onetime" {
+		return fmt.Errorf("Incorrect subaction called: %q", elems[2])
+	}
+	(*args)["subAction"] = "onetime"
+
+	ptrn := regexp.MustCompile(`^\w{3,10}$`)
+	if !ptrn.Match([]byte(elems[3])) {
+		return fmt.Errorf("Label be Alphanumeric between 3 and 10 characters\n ```%s```", usage("onetime"))
+	}
+	(*args)["label"] = elems[3]
+
+	datetime, err := time.Parse(time.RFC3339, elems[4])
+	if err != nil {
+		return fmt.Errorf("Error parsing your time %q. Must be formatted in RFC3339 format, please try again", elems[4])
+	}
+
+	//the scheduled message has to be at least 1 hour out.
+	if !datetime.After(time.Now().Add(time.Minute * 59)) {
+		return fmt.Errorf("Scheduled message must be at least 1 hour away from now")
+	}
+	(*args)["dateTime"] = elems[4]
+
+	if !Groups.IsGroup(elems[5]) {
+		return fmt.Errorf("Specificed group %q not found", elems[5])
+	}
+	(*args)["groupName"] = elems[5]
+
+	(*args)["message"] = strings.Join(elems[6:], " ")
+
+	return nil
 }

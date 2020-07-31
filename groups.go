@@ -14,7 +14,8 @@ import (
 //speedy interaction with the groups.
 type GroupMap map[string]*Group
 
-//GroupMgr is responsible for handling all actions for a specific group
+//GroupMgr is an interface to describe what needs to happen to handle
+//all actions for a group
 type GroupMgr interface {
 	Create(string, string, messageResponse) string
 	Disband(string, messageResponse) string
@@ -598,7 +599,7 @@ func (gm GroupMap) checkMember(groupName, memberID string) (here bool) {
 	return
 }
 
-//isGroup is a method created for the Notify method. This is what checks the string after
+//IsGroup is a method created for the Notify method. This is what checks the string after
 //the bot's name call to check if it's a group. In the future, this will be called more than
 //once depending on if the preceeding string was a group. This would be support for notifying
 //multiple groups at once. That does seem like something useful, but not really at this time.
