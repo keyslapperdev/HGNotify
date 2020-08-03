@@ -27,10 +27,11 @@ func TestEndToEnd(t *testing.T) {
 	db := Logger.DB
 
 	TestGroupMap := GroupMap{}
+	TestSchedules := ScheduleMap{}
 	groupName := genRandName(0)
 	saveName := strings.ToLower(groupName)
 
-	server := httptest.NewServer(getRequestHandler(TestGroupMap))
+	server := httptest.NewServer(getRequestHandler(TestGroupMap, TestSchedules))
 	contentType := "application/json"
 
 	//Testing the lifecycle of a group from handler to db

@@ -198,16 +198,38 @@ func TestInspectMessage(t *testing.T) {
 	t.Run("Correctly calls method for given action", func(t *testing.T) {
 		for _, action := range actions {
 			MockGroups := MockGroupMap{}
+			MockSchedule := MockScheduler{}
 			msgObj := newMsgObj
 			args := make(Arguments)
 
 			args["action"] = action
 
-			inspectMessage(MockGroups, msgObj, args)
+			inspectMessage(MockGroups, MockSchedule, msgObj, args)
 
 			_, Called := MockGroups[action]
 			if !Called {
 				t.Fatalf("Groups not called for action %q\nGot: %+v", action, MockGroups)
+			}
+		}
+	})
+
+	scheduleSubActions := []string{"onetime"}
+
+	t.Run("Correctly calls method for given schedule sub action", func(t *testing.T) {
+		for _, action := range scheduleSubActions {
+			MockGroups := MockGroupMap{}
+			MockSchedule := MockScheduler{}
+			msgObj := newMsgObj
+			args := make(Arguments)
+
+			args["action"] = "schedule"
+			args["subAction"] = action
+
+			inspectMessage(MockGroups, MockSchedule, msgObj, args)
+
+			_, Called := MockSchedule[action]
+			if !Called {
+				t.Fatalf("Scheduler not called for sub action %q\n", action)
 			}
 		}
 	})
@@ -254,4 +276,11 @@ func (mgm MockGroupMap) SyncAllGroups(messageResponse) string {
 }
 
 //Unused, just needs to exist for the interface
-func (mgm MockGroupMap) IsGroup(string) bool { return true }
+func (mgm MockGroupMap) GetGroup(string) *Group { return new(Group) }
+func (mgm MockGroupMap) IsGroup(string) bool    { return true }
+
+type MockScheduler map[string]bool
+
+func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj messageResponse) {
+	ms["onetime"] = true
+}

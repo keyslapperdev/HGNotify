@@ -156,7 +156,7 @@ func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg strin
 
 //inspectMessage method (maybe should be renamed) takes the parsed arguments
 //then reacts accordingly.
-func inspectMessage(Groups GroupMgr, msgObj messageResponse, args Arguments) (msg string) {
+func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageResponse, args Arguments) (msg string) {
 	switch args["action"] {
 	case "create":
 		msg = Groups.Create(args["groupName"], args["self"], msgObj)
@@ -193,6 +193,12 @@ func inspectMessage(Groups GroupMgr, msgObj messageResponse, args Arguments) (ms
 
 	case "help":
 		msg = usage("")
+
+	case "schedule":
+		switch args["subAction"] {
+		case "onetime":
+			Scheduler.CreateOnetime(args, Groups, msgObj)
+		}
 
 	default:
 		//All of the argument things should be taken care of by the time we get here,

@@ -32,6 +32,7 @@ type Arguments map[string]string
 
 func main() {
 	Groups := make(GroupMap)
+	Schedules := make(ScheduleMap)
 
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
@@ -40,7 +41,7 @@ func main() {
 
 	var err error
 
-	http.HandleFunc(baseRoute, getRequestHandler(Groups))
+	http.HandleFunc(baseRoute, getRequestHandler(Groups, Schedules))
 	http.HandleFunc(baseRoute+"readiness/", ReadinessCheck())
 
 	if Config.UseSSL == "true" {

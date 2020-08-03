@@ -26,6 +26,7 @@ type GroupMgr interface {
 	List(string, messageResponse) string
 	SyncGroupMembers(string, messageResponse) string
 	SyncAllGroups(messageResponse) string
+	GetGroup(string) *Group
 	IsGroup(string) bool
 }
 
@@ -597,6 +598,13 @@ func (gm GroupMap) checkMember(groupName, memberID string) (here bool) {
 	}
 
 	return
+}
+
+// GetGroup returns the specified group
+func (gm GroupMap) GetGroup(name string) *Group {
+	saveName := strings.ToLower(name)
+
+	return gm[saveName]
 }
 
 //IsGroup is a method created for the Notify method. This is what checks the string after

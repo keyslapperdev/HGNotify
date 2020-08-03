@@ -14,7 +14,7 @@ func TestRequestHandler(t *testing.T) {
 	Logger.Active(false)
 	contentType := "application/json"
 
-	server := httptest.NewServer(getRequestHandler(GroupMap{}))
+	server := httptest.NewServer(getRequestHandler(GroupMap{}, ScheduleMap{}))
 
 	t.Run("Correctly responds when added to room", func(t *testing.T) {
 		data := bytes.NewBuffer([]byte(fmt.Sprintf(`{

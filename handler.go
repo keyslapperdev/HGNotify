@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
+func getRequestHandler(Groups GroupMgr, Scheduler ScheduleMgr) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var (
 			msgObj   messageResponse
@@ -37,7 +37,7 @@ func getRequestHandler(Groups GroupMgr) http.HandlerFunc {
 
 			args, errMsg, okay := msgObj.ParseArgs(Groups)
 			if okay {
-				msg = inspectMessage(Groups, msgObj, args)
+				msg = inspectMessage(Groups, Scheduler, msgObj, args)
 			} else {
 				msg = errMsg
 			}

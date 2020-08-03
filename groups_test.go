@@ -864,3 +864,23 @@ func TestSyncAllGroups(t *testing.T) {
 
 	t.Skip("Not sure how to mock the DB out in the test as of now")
 }
+
+func TestGetGroup(t *testing.T) {
+	wantedGroupName := RandString(10)
+
+	Groups := make(GroupMap)
+	group := &Group{Name: wantedGroupName}
+
+	Groups[strings.ToLower(wantedGroupName)] = group
+
+	t.Run("Correctly Retrieves group", func(t *testing.T) {
+		gotGroup := Groups.GetGroup(wantedGroupName)
+
+		if gotGroup.Name != wantedGroupName {
+			t.Fatalf("Wanted group not returned\nGot: %+v\nWanted: %+v",
+				gotGroup.Name,
+				wantedGroupName,
+			)
+		}
+	})
+}
