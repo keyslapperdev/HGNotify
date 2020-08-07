@@ -197,7 +197,7 @@ func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageRespon
 	case "schedule":
 		switch args["subAction"] {
 		case "onetime":
-			Scheduler.CreateOnetime(args, Groups, msgObj)
+			msg = Scheduler.CreateOnetime(args, Groups, msgObj)
 		}
 
 	default:

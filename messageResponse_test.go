@@ -281,6 +281,7 @@ func (mgm MockGroupMap) IsGroup(string) bool    { return true }
 
 type MockScheduler map[string]bool
 
-func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj messageResponse) {
+func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj messageResponse) string {
 	ms["onetime"] = true
+	return ""
 }

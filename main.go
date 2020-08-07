@@ -36,13 +36,14 @@ func main() {
 
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
+	//Logger.GetSchedulesFromDB(Schedules) //TODO Consume Schedules
 
 	fmt.Println("Running!! on port " + port)
 
-	var err error
-
 	http.HandleFunc(baseRoute, getRequestHandler(Groups, Schedules))
 	http.HandleFunc(baseRoute+"readiness/", ReadinessCheck())
+
+	var err error
 
 	if Config.UseSSL == "true" {
 		err = http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)

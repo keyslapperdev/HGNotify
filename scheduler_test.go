@@ -28,7 +28,7 @@ func TestCreateOnetime(t *testing.T) {
 
 		scheduler.CreateOnetime(args, Groups, msgObj)
 
-		gotSchedule := scheduler[msgObj.Room.GID][0]
+		gotSchedule := scheduler[msgObj.Room.GID+":"+args["label"]]
 
 		if gotSchedule.SessKey != msgObj.Room.GID+":"+msgObj.Message.Sender.GID {
 			t.Errorf("Bad session key\nGot: %s\nWanted: %s\n",
@@ -68,5 +68,13 @@ func TestCreateOnetime(t *testing.T) {
 				args["Message"],
 			)
 		}
+
+		t.Run("Starts timer", func(t *testing.T) {
+			time.Sleep(time.Microsecond)
+
+			if gotSchedule.timer == nil {
+				t.Errorf("Timer not started.")
+			}
+		})
 	})
 }
