@@ -28,12 +28,17 @@ type messageResponse struct {
 type message struct {
 	Sender   User         `json:"sender"`
 	Mentions []annotation `json:"annotations"`
+	Thread   thread       `json:"thread"`
 	Text     string       `json:"text"`
 }
 
 type annotation struct {
 	Called userMention `json:"userMention"`
 	Type   string      `json:"type"`
+}
+
+type thread struct {
+	Name string `json:"name"`
 }
 
 type userMention struct {

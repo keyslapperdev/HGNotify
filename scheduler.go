@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"strings"
 	"time"
+
+	chat "google.golang.org/api/chat/v1"
 )
 
 // ScheduleMgr maintains a description of what the scheduler
@@ -20,12 +24,14 @@ type ScheduleMap map[string]*Schedule
 type Schedule struct {
 	ID           uint   `gorm:"primary_key;not null;unique"`
 	SessKey      string `gorm:"not null"` // room_id:user_id
+	Creator      string `gorm:"not null"`
 	IsRecurring  bool   `gorm:"not null"`
 	DayKey       string
 	ExecuteOn    time.Time `gorm:"not null"`
 	UpdatedOn    time.Time `gorm:"not null"`
 	CompletedOn  time.Time
-	GroupID      uint   `gorm:"not null"`
+	Group        *Group
+	ThreadKey    string
 	MessageLabel string `gorm:"not null"`
 	MessageText  string `gorm:"not null"`
 	timer        *time.Timer
@@ -45,10 +51,12 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 	}
 
 	schedule.SessKey = msgObj.Room.GID + ":" + msgObj.Message.Sender.GID
+	schedule.Creator = msgObj.Message.Sender.Name
 	schedule.IsRecurring = false
 	schedule.ExecuteOn, _ = time.Parse(time.RFC3339, args["dateTime"])
 	schedule.UpdatedOn = time.Now()
-	schedule.GroupID = Groups.GetGroup(args["groupName"]).ID // TODO Setup relationship
+	schedule.Group = Groups.GetGroup(args["groupName"]) // TODO Setup relationship
+	schedule.ThreadKey = msgObj.Message.Thread.Name
 	schedule.MessageLabel = args["label"]
 	schedule.MessageText = args["message"]
 
@@ -59,13 +67,13 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 	return fmt.Sprintf("Scheduled onetime message %q for group %q to be sent on %q",
 		schedule.MessageLabel,
 		args["groupName"],
-		schedule.ExecuteOn.Format(time.RFC850),
+		schedule.ExecuteOn.Format("Monday, 1 January 2006 3:04 PM CDT"),
 	)
 }
 
 // GetLabels returns a list of the rooms schedules have been created for
 func (sm ScheduleMap) GetLabels() []string {
-	labels := make([]string, len(sm))
+	var labels []string
 
 	for label := range sm {
 		labels = append(labels, label)
@@ -110,7 +118,36 @@ func (s *Schedule) StartTimer() {
 
 // Send will send out the message scheduled
 func (s *Schedule) Send() {
-	go func() {
-		s.CompletedOn = time.Now()
-	}()
+	// As of right now, because the logic to generate the "Notify"
+	// message soley lives within a method for GroupMap and requires
+	// a messageResponse object to create, to get the message I have
+	// to make an instance of GroupMap and messageResponse to retrieve
+	// the message. Even for MVP this is grody, but a baby's gotta do
+	// what a baby's gotta do.
+	groups := make(GroupMap)
+	groups[s.Group.Name] = s.Group
+
+	msgObj := messageResponse{}
+	// Mimicking how the message would normally look
+	msgObj.Message.Text = BotName + " " + s.Group.Name + " " + s.MessageText
+	msgObj.Message.Sender.Name = s.Creator
+
+	msg := groups.Notify(s.Group.Name, msgObj)
+
+	chatService := getChatService(getChatClient())
+	msgService := chat.NewSpacesMessagesService(chatService)
+
+	room := strings.Split(s.SessKey, ":")[0]
+
+	_, err := msgService.Create(room, &chat.Message{
+		Text: msg,
+		Thread: &chat.Thread{
+			Name: s.ThreadKey,
+		},
+	}).Do()
+	if err != nil {
+		log.Fatal("Error sending scheduled notification: " + err.Error())
+	}
+
+	s.CompletedOn = time.Now()
 }

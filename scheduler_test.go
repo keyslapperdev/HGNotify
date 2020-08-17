@@ -22,6 +22,7 @@ func TestCreateOnetime(t *testing.T) {
 	msgObj := messageResponse{}
 	msgObj.Room.GID = genRoomGID(0)
 	msgObj.Message.Sender.GID = genUserGID(0)
+	msgObj.Message.Thread.Name = RandString(10)
 
 	t.Run("Successfully adds onetime event", func(t *testing.T) {
 		scheduler := make(ScheduleMap)
@@ -48,10 +49,17 @@ func TestCreateOnetime(t *testing.T) {
 			)
 		}
 
-		if gotSchedule.GroupID != Groups[strings.ToLower(wantedGroupName)].ID {
-			t.Errorf("Incorrect group ID\nGot: %d\nWanted: %d\n",
-				gotSchedule.GroupID,
+		if gotSchedule.Group.ID != Groups[strings.ToLower(wantedGroupName)].ID {
+			t.Errorf("Incorrect group ID\nGot: %+v\nWanted: %+v\n",
+				gotSchedule.Group.ID,
 				Groups[strings.ToLower(wantedGroupName)].ID,
+			)
+		}
+
+		if gotSchedule.ThreadKey != msgObj.Message.Thread.Name {
+			t.Errorf("Incorrect threadkey\nGot: %s\nWanted: %s\n",
+				gotSchedule.ThreadKey,
+				msgObj.Message.Thread.Name,
 			)
 		}
 
@@ -76,5 +84,51 @@ func TestCreateOnetime(t *testing.T) {
 				t.Errorf("Timer not started.")
 			}
 		})
+	})
+}
+
+func TestGetLables(t *testing.T) {
+	sm := make(ScheduleMap)
+
+	t.Run("Correctly returns nothing if empty", func(t *testing.T) {
+		gotLabels := sm.GetLabels()
+
+		if len(gotLabels) != 0 {
+			t.Errorf("Returns labels when none should exist.\nFound %d",
+				len(gotLabels),
+			)
+		}
+	})
+
+	wantedLabel := RandString(10)
+	sm[wantedLabel] = new(Schedule)
+
+	t.Run("Correctly returns one label", func(t *testing.T) {
+		gotLabels := sm.GetLabels()
+
+		if len(gotLabels) != 1 {
+			t.Errorf("Incorrect amount of labels found.\nShould be 1 Found %d",
+				len(gotLabels),
+			)
+		}
+
+		if gotLabels[0] != wantedLabel {
+			t.Errorf("Incorrect label returned.\nGot: %s\nWanted: %s",
+				gotLabels[0],
+				wantedLabel,
+			)
+		}
+	})
+
+	sm[RandString(10)] = new(Schedule)
+
+	t.Run("Correctly returns more than one label", func(t *testing.T) {
+		gotLabels := sm.GetLabels()
+
+		if len(gotLabels) != 2 {
+			t.Errorf("Incorrect amount of labels found.\nShould be 2 Found %d",
+				len(gotLabels),
+			)
+		}
 	})
 }
