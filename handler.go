@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 )
 
 func getRequestHandler(Groups GroupMgr, Scheduler ScheduleMgr) http.HandlerFunc {
@@ -15,6 +18,25 @@ func getRequestHandler(Groups GroupMgr, Scheduler ScheduleMgr) http.HandlerFunc 
 			jsonResp []byte
 			e        error
 		)
+
+		var authToken string
+		if len(r.Header["Authorization"]) != 0 {
+			authToken = strings.Split(r.Header["Authorization"][0], " ")[1]
+		} else {
+			authToken = ""
+		}
+
+		if !isValidRequest(authToken) {
+			log.Printf("Unverified request received from: %s\n",
+				r.RemoteAddr,
+			)
+
+			if os.Getenv("VERIFY_REQUEST") == "true" {
+				log.Println("Denying response")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 
 		jsonReq, e = ioutil.ReadAll(r.Body)
 		checkError(e)
@@ -60,6 +82,9 @@ func getRequestHandler(Groups GroupMgr, Scheduler ScheduleMgr) http.HandlerFunc 
 	}
 }
 
+// ReadinessCheck returns a healthcheck handler
+// only to be hit showing application is ready
+// for connection
 func ReadinessCheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

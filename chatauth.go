@@ -9,11 +9,17 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/chat/v1"
+	chat "google.golang.org/api/chat/v1"
 )
 
-//Grabbing config information for contact with Hangouts Chat's api.
+// Grabbing config information for contact with Hangouts Chat's api.
 var serviceKeyPath = os.Getenv("CHAT_SERVICE_KEY_PATH")
+
+// The first time the token is receieved and validated, it'll be set to this
+// variable. So as to not make a request every time someone makes uses the
+// bot. If I find out that more than one token is used ( which I don't think
+// there should be ), I'll make this into an arrally
+var cachedAuthToken string
 
 func getChatService(client *http.Client) *chat.Service {
 	service, err := chat.New(client)
@@ -42,4 +48,25 @@ func getChatClient() *http.Client {
 	}
 
 	return oauth2.NewClient(ctx, creds.TokenSource)
+}
+
+func isValidRequest(authToken string) bool {
+	if authToken == cachedAuthToken {
+		return true
+	}
+
+	verified, err := validateJWT(authToken)
+	if err != nil {
+		log.Println("Error validating auth token: ", err.Error())
+		return false
+	}
+
+	log.Println(verified)
+
+	if verified {
+		cachedAuthToken = authToken
+		return true
+	}
+
+	return false
 }
