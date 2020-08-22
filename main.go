@@ -21,7 +21,7 @@ var (
 	MasterID = Config.MasterID
 
 	baseRoute = "/"
-	port      = ":8000"
+	port      = ":8888"
 )
 
 //Arguments is generic type for passing arguments as a map
