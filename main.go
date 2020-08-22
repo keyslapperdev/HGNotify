@@ -36,7 +36,7 @@ func main() {
 
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
-	//Logger.GetSchedulesFromDB(Schedules) //TODO Consume Schedules
+	Logger.GetSchedulesFromDB(Schedules)
 
 	fmt.Println("Running!! on port " + port)
 

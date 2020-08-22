@@ -296,57 +296,6 @@ func TestGetGroupsFromDB(t *testing.T) {
 	})
 }
 
-func TestSaveScheduledEvent(t *testing.T) {
-	db := Logger.DB
-
-	group := &Group{Name: RandString(10)}
-	db.Create(group)
-
-	schedule := &Schedule{
-		SessKey:      "sesskey",
-		Creator:      "me",
-		IsRecurring:  false,
-		ExecuteOn:    time.Now().Add(time.Hour * 2),
-		GroupID:      group.ID,
-		ThreadKey:    "threadkey",
-		MessageLabel: "messageLabel",
-		MessageText:  "text",
-	}
-
-	t.Run("Correctly adds scheduled onetime event", func(t *testing.T) {
-
-		Logger.SaveScheduledEvent(schedule)
-
-		var gotSchedule Schedule
-		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
-
-		if reflect.DeepEqual(schedule, gotSchedule) {
-			t.Errorf("Incorrect information returned:\nWanted: %+v\nGot: %+v",
-				schedule,
-				gotSchedule,
-			)
-		}
-	})
-
-	t.Run("Correctly updates existing scheduled onetime event", func(t *testing.T) {
-		wantedText := "wanted text"
-		schedule.MessageText = wantedText
-
-		Logger.SaveScheduledEvent(schedule)
-
-		var gotSchedule Schedule
-		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
-
-		if gotSchedule.MessageText != wantedText {
-			t.Errorf("Schedule not updated:\nGot Text: %s\nWanted Text: %s",
-				gotSchedule.MessageText,
-				schedule.MessageText,
-			)
-		}
-	})
-
-}
-
 func TestGetGroupByID(t *testing.T) {
 	db := Logger.DB
 
@@ -415,6 +364,123 @@ func TestGetGroupByID(t *testing.T) {
 					gotGroup.Members,
 				)
 			}
+		}
+	})
+}
+
+func TestSaveScheduledEvent(t *testing.T) {
+	db := Logger.DB
+
+	group := &Group{Name: RandString(10)}
+	db.Create(group)
+
+	schedule := &Schedule{
+		SessKey:      "sesskey",
+		Creator:      "me",
+		IsRecurring:  false,
+		ExecuteOn:    time.Now().Add(time.Hour * 2),
+		GroupID:      group.ID,
+		ThreadKey:    "threadkey",
+		MessageLabel: "messageLabel",
+		MessageText:  "text",
+	}
+
+	t.Run("Correctly adds scheduled onetime event", func(t *testing.T) {
+
+		Logger.SaveScheduledEvent(schedule)
+
+		var gotSchedule Schedule
+		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
+
+		if reflect.DeepEqual(schedule, gotSchedule) {
+			t.Errorf("Incorrect information returned:\nWanted: %+v\nGot: %+v",
+				schedule,
+				gotSchedule,
+			)
+		}
+	})
+
+	t.Run("Correctly updates existing scheduled onetime event", func(t *testing.T) {
+		wantedText := "wanted text"
+		schedule.MessageText = wantedText
+
+		Logger.SaveScheduledEvent(schedule)
+
+		var gotSchedule Schedule
+		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
+
+		if gotSchedule.MessageText != wantedText {
+			t.Errorf("Schedule not updated:\nGot Text: %s\nWanted Text: %s",
+				gotSchedule.MessageText,
+				schedule.MessageText,
+			)
+		}
+	})
+
+}
+
+func TestGetSchedulesFromDB(t *testing.T) {
+	db := Logger.DB
+
+	wantedLabels := []string{RandString(10), RandString(10), RandString(10)}
+
+	schedules := []*Schedule{
+		{
+			SessKey:      "sess:key",
+			Creator:      "me",
+			IsRecurring:  false,
+			ExecuteOn:    time.Now().Add(time.Hour * 2),
+			GroupID:      1,
+			ThreadKey:    "threadkey",
+			MessageLabel: wantedLabels[0],
+			MessageText:  "text",
+		},
+		{
+			SessKey:      "sess:key",
+			Creator:      "me",
+			IsRecurring:  false,
+			ExecuteOn:    time.Now().Add(time.Hour * 2),
+			GroupID:      1,
+			ThreadKey:    "threadkey",
+			MessageLabel: wantedLabels[1],
+			MessageText:  "text",
+		},
+		{
+			SessKey:      "sess:key",
+			Creator:      "me",
+			IsRecurring:  false,
+			ExecuteOn:    time.Now().Add(time.Hour * 2),
+			GroupID:      1,
+			ThreadKey:    "threadkey",
+			MessageLabel: wantedLabels[2],
+			MessageText:  "text",
+		},
+	}
+
+	for _, schedule := range schedules {
+		db.Create(schedule)
+	}
+
+	t.Run("Retrieves schedules from the db", func(t *testing.T) {
+		scheduleMap := make(ScheduleMap)
+
+		Logger.GetSchedulesFromDB(scheduleMap)
+
+		if len(scheduleMap) < 3 {
+			t.Error("Map does not have all schedules")
+		}
+
+		var missing int
+		for _, label := range wantedLabels {
+			schedKey := "sess:" + label
+
+			if !scheduleMap.HasSchedule(schedKey) {
+				missing++
+			}
+		}
+
+		if missing != 0 {
+			t.Errorf("Retrevied map is missing %d schedules", missing)
 		}
 	})
 }

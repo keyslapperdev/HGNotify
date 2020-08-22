@@ -225,6 +225,30 @@ func (db *DBLogger) SaveScheduledEvent(schedule *Schedule) {
 	db.Create(schedule)
 }
 
+// GetSchedulesFromDB Grabbing all of the schedules from the
+// db to be consumed at app startup
+func (db *DBLogger) GetSchedulesFromDB(sMap ScheduleMap) {
+	if !db.isActive {
+		return
+	}
+
+	var schedules []Schedule
+	db.Find(&schedules)
+
+	for _, schedule := range schedules {
+		if !schedule.CompletedOn.IsZero() && !schedule.IsRecurring {
+			continue
+		}
+
+		room := strings.Split(schedule.SessKey, ":")[0]
+		label := schedule.MessageLabel
+
+		schedule.StartTimer()
+
+		sMap[room+":"+label] = &schedule
+	}
+}
+
 //Active is the setter method for the activity of the db logger
 func (db *DBLogger) Active(status bool) {
 	db.isActive = status
