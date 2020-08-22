@@ -27,11 +27,12 @@ type Schedule struct {
 	Creator      string `gorm:"not null"`
 	IsRecurring  bool   `gorm:"not null"`
 	DayKey       string
+	CreatedOn    time.Time `gorm:"not null"`
 	ExecuteOn    time.Time `gorm:"not null"`
-	UpdatedOn    time.Time `gorm:"not null"`
+	UpdatedOn    time.Time
 	CompletedOn  time.Time
-	Group        *Group
-	ThreadKey    string
+	GroupID      uint   `gorm:"not null"`
+	ThreadKey    string `gorm:"not null"`
 	MessageLabel string `gorm:"not null"`
 	MessageText  string `gorm:"not null"`
 	timer        *time.Timer
@@ -53,9 +54,9 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 	schedule.SessKey = msgObj.Room.GID + ":" + msgObj.Message.Sender.GID
 	schedule.Creator = msgObj.Message.Sender.Name
 	schedule.IsRecurring = false
+	schedule.CreatedOn = time.Now()
 	schedule.ExecuteOn, _ = time.Parse(time.RFC3339, args["dateTime"])
-	schedule.UpdatedOn = time.Now()
-	schedule.Group = Groups.GetGroup(args["groupName"]) // TODO Setup relationship
+	schedule.GroupID = Groups.GetGroup(args["groupName"]).Model.ID // TODO Setup relationship
 	schedule.ThreadKey = msgObj.Message.Thread.Name
 	schedule.MessageLabel = args["label"]
 	schedule.MessageText = args["message"]
@@ -64,10 +65,12 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 
 	sm[schedKey] = schedule
 
+	go Logger.SaveScheduledEvent(schedule)
+
 	return fmt.Sprintf("Scheduled onetime message %q for group %q to be sent on %q",
 		schedule.MessageLabel,
 		args["groupName"],
-		schedule.ExecuteOn.Format("Monday, 1 January 2006 3:04 PM CDT"),
+		schedule.ExecuteOn.Format("Monday, 2 January 2006 3:04 PM CDT"),
 	)
 }
 
@@ -125,14 +128,15 @@ func (s *Schedule) Send() {
 	// the message. Even for MVP this is grody, but a baby's gotta do
 	// what a baby's gotta do.
 	groups := make(GroupMap)
-	groups[s.Group.Name] = s.Group
+	group := Logger.GetGroupByID(s.GroupID)
+	groups[group.Name] = group
 
 	msgObj := messageResponse{}
 	// Mimicking how the message would normally look
-	msgObj.Message.Text = BotName + " " + s.Group.Name + " " + s.MessageText
+	msgObj.Message.Text = BotName + " " + group.Name + " " + s.MessageText
 	msgObj.Message.Sender.Name = s.Creator
 
-	msg := groups.Notify(s.Group.Name, msgObj)
+	msg := groups.Notify(group.Name, msgObj)
 
 	chatService := getChatService(getChatClient())
 	msgService := chat.NewSpacesMessagesService(chatService)

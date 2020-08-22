@@ -125,6 +125,35 @@ func (db *DBLogger) GetGroupsFromDB(groupMap GroupMap) {
 	}
 }
 
+//GetGroupByID pulls a group from the databse given the ID.
+//I'm aware that this kinda defies the "Logger" nature of this
+//class, but as of now this is something I need to keep going.
+//Major refactors are going to come after I'm done with the
+//schedule features
+func (db *DBLogger) GetGroupByID(groupID uint) *Group {
+	if !db.isActive {
+		return nil
+	}
+
+	groupSearchTmpl := new(Group)
+	groupSearchTmpl.Model.ID = groupID
+
+	group := new(Group)
+
+	db.Model(Group{}).Where(groupSearchTmpl).Find(group)
+
+	memberSearchTmpl := new(Member)
+	memberSearchTmpl.GroupID = group.Model.ID
+
+	members := make([]Member, 0)
+
+	db.Model(Member{}).Where(memberSearchTmpl).Find(&members)
+
+	group.Members = members
+
+	return group
+}
+
 //SyncAllGroups method syncs the database groups to the in-memory group list
 //during runtime. Just in case.
 func (db *DBLogger) SyncAllGroups(groups GroupMap) {
@@ -180,6 +209,20 @@ func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
 	}
 
 	db.Create(entry)
+}
+
+// SaveScheduledEvent saves the event to the database
+func (db *DBLogger) SaveScheduledEvent(schedule *Schedule) {
+	if !db.isActive {
+		return
+	}
+
+	if schedule.ID != 0 {
+		db.Save(schedule)
+		return
+	}
+
+	db.Create(schedule)
 }
 
 //Active is the setter method for the activity of the db logger

@@ -7,6 +7,8 @@ import (
 )
 
 func TestCreateOnetime(t *testing.T) {
+	Logger.Active(false)
+
 	wantedGroupName := genRandName(10)
 
 	args := make(Arguments)
@@ -49,9 +51,9 @@ func TestCreateOnetime(t *testing.T) {
 			)
 		}
 
-		if gotSchedule.Group.ID != Groups[strings.ToLower(wantedGroupName)].ID {
+		if gotSchedule.GroupID != Groups[strings.ToLower(wantedGroupName)].ID {
 			t.Errorf("Incorrect group ID\nGot: %+v\nWanted: %+v\n",
-				gotSchedule.Group.ID,
+				gotSchedule.GroupID,
 				Groups[strings.ToLower(wantedGroupName)].ID,
 			)
 		}

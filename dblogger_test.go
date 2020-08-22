@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSetupTables(t *testing.T) {
@@ -290,6 +291,129 @@ func TestGetGroupsFromDB(t *testing.T) {
 				if member.Name != memberNames[i] {
 					t.Fatal("Wanted member not associated with correct group")
 				}
+			}
+		}
+	})
+}
+
+func TestSaveScheduledEvent(t *testing.T) {
+	db := Logger.DB
+
+	group := &Group{Name: RandString(10)}
+	db.Create(group)
+
+	schedule := &Schedule{
+		SessKey:      "sesskey",
+		Creator:      "me",
+		IsRecurring:  false,
+		ExecuteOn:    time.Now().Add(time.Hour * 2),
+		GroupID:      group.ID,
+		ThreadKey:    "threadkey",
+		MessageLabel: "messageLabel",
+		MessageText:  "text",
+	}
+
+	t.Run("Correctly adds scheduled onetime event", func(t *testing.T) {
+
+		Logger.SaveScheduledEvent(schedule)
+
+		var gotSchedule Schedule
+		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
+
+		if reflect.DeepEqual(schedule, gotSchedule) {
+			t.Errorf("Incorrect information returned:\nWanted: %+v\nGot: %+v",
+				schedule,
+				gotSchedule,
+			)
+		}
+	})
+
+	t.Run("Correctly updates existing scheduled onetime event", func(t *testing.T) {
+		wantedText := "wanted text"
+		schedule.MessageText = wantedText
+
+		Logger.SaveScheduledEvent(schedule)
+
+		var gotSchedule Schedule
+		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
+
+		if gotSchedule.MessageText != wantedText {
+			t.Errorf("Schedule not updated:\nGot Text: %s\nWanted Text: %s",
+				gotSchedule.MessageText,
+				schedule.MessageText,
+			)
+		}
+	})
+
+}
+
+func TestGetGroupByID(t *testing.T) {
+	db := Logger.DB
+
+	t.Run("Correctly retreives empty group", func(t *testing.T) {
+		wantedGroup := &Group{Name: RandString(10)}
+		db.Create(wantedGroup)
+
+		gotGroup := Logger.GetGroupByID(wantedGroup.ID)
+
+		if gotGroup.Name != wantedGroup.Name {
+			t.Errorf("Incorrect group name in database.\nWanted: %q\nGot: %q",
+				wantedGroup.Name,
+				gotGroup.Name,
+			)
+		}
+	})
+
+	t.Run("Correctly retreives group with one member", func(t *testing.T) {
+		wantedGroup := &Group{
+			Name: RandString(10),
+			Members: []Member{
+				{Name: RandString(15), GID: "users/" + StringWithCharset(10, "0123456789")},
+			},
+		}
+		db.Create(wantedGroup)
+
+		gotGroup := Logger.GetGroupByID(wantedGroup.ID)
+
+		if len(gotGroup.Members) == 0 {
+			t.Fatal("No members returned")
+		}
+
+		if wantedGroup.Members[0].Name != gotGroup.Members[0].Name ||
+			wantedGroup.Members[0].GroupID != gotGroup.Members[0].GroupID ||
+			wantedGroup.Members[0].GID != gotGroup.Members[0].GID {
+			t.Errorf("Incorrect member retrieved from database.\nWanted: %+v\nGot: %+v",
+				wantedGroup.Members,
+				gotGroup.Members,
+			)
+		}
+	})
+
+	t.Run("Correctly retreives group with multiple members", func(t *testing.T) {
+		wantedGroup := &Group{
+			Name: RandString(10),
+			Members: []Member{
+				{Name: RandString(15), GID: "users/" + StringWithCharset(10, "0123456789")},
+				{Name: RandString(15), GID: "users/" + StringWithCharset(10, "0123456789")},
+				{Name: RandString(15), GID: "users/" + StringWithCharset(10, "0123456789")},
+			},
+		}
+		db.Create(wantedGroup)
+
+		gotGroup := Logger.GetGroupByID(wantedGroup.ID)
+
+		if len(gotGroup.Members) == 0 {
+			t.Fatal("No members returned")
+		}
+
+		for i, gotMember := range wantedGroup.Members {
+			if wantedGroup.Members[i].Name != gotMember.Name ||
+				wantedGroup.Members[i].GroupID != gotMember.GroupID ||
+				wantedGroup.Members[i].GID != gotMember.GID {
+				t.Errorf("Incorrect member retrieved from database.\nWanted: %+v\nGot: %+v",
+					wantedGroup.Members[i],
+					gotGroup.Members,
+				)
 			}
 		}
 	})
