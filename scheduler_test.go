@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-yaml/yaml"
 )
 
 func TestCreateOnetime(t *testing.T) {
@@ -86,6 +88,65 @@ func TestCreateOnetime(t *testing.T) {
 				t.Errorf("Timer not started.")
 			}
 		})
+	})
+}
+
+func TestListSchedules(t *testing.T) {
+	roomGID := genRoomGID(20)
+
+	msgObj := messageResponse{}
+	msgObj.Room.GID = roomGID
+
+	wantedSchedule1 := &Schedule{
+		Creator:      "Meee",
+		IsRecurring:  false,
+		CreatedOn:    time.Now(),
+		ExecuteOn:    time.Now().Add(time.Hour * 2),
+		GroupID:      1,
+		MessageLabel: "MessageLabel",
+		MessageText:  "Text",
+	}
+
+	scheduleYaml1, err := yaml.Marshal(wantedSchedule1)
+	if err != nil {
+		t.Error("Problem marshalling schedule to yaml: " + err.Error())
+	}
+
+	wantedSchedule2 := &Schedule{
+		Creator:      "Meee",
+		IsRecurring:  false,
+		CreatedOn:    time.Now(),
+		ExecuteOn:    time.Now().Add(time.Hour * 2),
+		GroupID:      1,
+		MessageLabel: "OtherMessageLabel",
+		MessageText:  "Text",
+	}
+
+	scheduleYaml2, err := yaml.Marshal(wantedSchedule2)
+	if err != nil {
+		t.Error("Problem marshalling schedule to yaml: " + err.Error())
+	}
+
+	sm := make(ScheduleMap)
+	sm[roomGID+":"+wantedSchedule1.MessageLabel] = wantedSchedule1
+	sm[roomGID+":"+wantedSchedule2.MessageLabel] = wantedSchedule2
+
+	t.Run("Correctly returns list of schedules", func(t *testing.T) {
+		gotText := sm.List(msgObj)
+
+		if !strings.Contains(gotText, string(scheduleYaml1)) {
+			t.Errorf("Expected to find first schedule:\n %q\nwithin\n %q\n but did not",
+				scheduleYaml1,
+				gotText,
+			)
+		}
+
+		if !strings.Contains(gotText, string(scheduleYaml2)) {
+			t.Errorf("Expected to find second schedule:\n %q\nwithin\n %q\n but did not",
+				scheduleYaml2,
+				gotText,
+			)
+		}
 	})
 }
 

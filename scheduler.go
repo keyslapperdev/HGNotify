@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-yaml/yaml"
 	chat "google.golang.org/api/chat/v1"
 )
 
@@ -13,6 +14,7 @@ import (
 // is be able to do
 type ScheduleMgr interface {
 	CreateOnetime(Arguments, GroupMgr, messageResponse) string
+	List(messageResponse) string
 }
 
 // ScheduleMap should be the thing that holds the information
@@ -22,19 +24,20 @@ type ScheduleMap map[string]*Schedule
 // Schedule contains information required to schedule a
 // message
 type Schedule struct {
-	ID           uint   `gorm:"primary_key;not null;unique"`
-	SessKey      string `gorm:"not null"` // room_id:user_id
-	Creator      string `gorm:"not null"`
-	IsRecurring  bool   `gorm:"not null"`
-	DayKey       string
-	CreatedOn    time.Time `gorm:"not null"`
-	ExecuteOn    time.Time `gorm:"not null"`
-	UpdatedOn    time.Time
-	CompletedOn  time.Time
-	GroupID      uint   `gorm:"not null"`
-	ThreadKey    string `gorm:"not null"`
-	MessageLabel string `gorm:"not null"`
-	MessageText  string `gorm:"not null"`
+	ID           uint      `gorm:"primary_key;not null;unique" yaml:"-"`
+	SessKey      string    `gorm:"not null" yaml:"-"` // room_id:user_id
+	Creator      string    `gorm:"not null" yaml:"creator"`
+	IsRecurring  bool      `gorm:"not null" yaml:"recurring"`
+	DayKey       string    `yaml:"-"`
+	CreatedOn    time.Time `gorm:"not null" yaml:"createdOn"`
+	ExecuteOn    time.Time `gorm:"not null" yaml:"sendOn"`
+	UpdatedOn    time.Time `yaml:"updatedOn,omitempty"`
+	CompletedOn  time.Time `yaml:"completedOn,omitempty"`
+	GroupID      uint      `gorm:"not null" yaml:"-"`
+	ThreadKey    string    `gorm:"not null" yaml:"-"`
+	MessageLabel string    `gorm:"not null" yaml:"label"`
+	MessageText  string    `gorm:"not null" yaml:"message"`
+	IsFinished   bool      `gorm:"not null;default:false" yaml:"-"`
 	timer        *time.Timer
 }
 
@@ -49,12 +52,12 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 		schedule.UpdatedOn = time.Now()
 	} else {
 		schedule = new(Schedule)
+		schedule.CreatedOn = time.Now()
 	}
 
 	schedule.SessKey = msgObj.Room.GID + ":" + msgObj.Message.Sender.GID
 	schedule.Creator = msgObj.Message.Sender.Name
 	schedule.IsRecurring = false
-	schedule.CreatedOn = time.Now()
 	schedule.ExecuteOn, _ = time.Parse(time.RFC3339, args["dateTime"])
 	schedule.GroupID = Groups.GetGroup(args["groupName"]).Model.ID // TODO Setup relationship
 	schedule.ThreadKey = msgObj.Message.Thread.Name
@@ -65,13 +68,43 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 
 	sm[schedKey] = schedule
 
-	go Logger.SaveScheduledEvent(schedule)
+	go Logger.SaveSchedule(schedule)
 
 	return fmt.Sprintf("Scheduled onetime message %q for group %q to be sent on %q",
 		schedule.MessageLabel,
 		args["groupName"],
 		schedule.ExecuteOn.Format("Monday, 2 January 2006 3:04 PM CDT"),
 	)
+}
+
+// List returns a yaml list of the schedules specific to the
+// room the request came from
+//
+// TODO: Fix how timestamps display when marhsalling to yaml.
+// Currently, it looks like there is no way to change how a
+// time.Time object displayes when using the go-yaml/yaml lib.
+// Likely the solution would be to choose a different library.
+func (sm ScheduleMap) List(msgObj messageResponse) string {
+	curRoomID := msgObj.Room.GID
+
+	var schedList string
+
+	for schedKey, schedule := range sm {
+		schedRoomID := strings.Split(schedKey, ":")[0]
+
+		if !schedule.IsFinished && schedRoomID == curRoomID {
+			data, err := yaml.Marshal(schedule)
+			checkError(err)
+
+			schedList += "\n" + string(data)
+		}
+	}
+
+	if schedList == "" {
+		return fmt.Sprintf("There are upcoming scheduled messages setup for this room as of yet.")
+	}
+
+	return fmt.Sprintf("Here are a list of the scheduled messages for this room ```%s```", schedList)
 }
 
 // GetLabels returns a list of the rooms schedules have been created for
@@ -153,5 +186,15 @@ func (s *Schedule) Send() {
 		log.Fatal("Error sending scheduled notification: " + err.Error())
 	}
 
+	s.complete()
+}
+
+func (s *Schedule) complete() {
 	s.CompletedOn = time.Now()
+
+	if !s.IsRecurring {
+		s.IsFinished = true
+	}
+
+	Logger.SaveSchedule(s)
 }

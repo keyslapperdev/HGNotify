@@ -368,7 +368,7 @@ func TestGetGroupByID(t *testing.T) {
 	})
 }
 
-func TestSaveScheduledEvent(t *testing.T) {
+func TestSaveSchedule(t *testing.T) {
 	db := Logger.DB
 
 	group := &Group{Name: RandString(10)}
@@ -387,7 +387,7 @@ func TestSaveScheduledEvent(t *testing.T) {
 
 	t.Run("Correctly adds scheduled onetime event", func(t *testing.T) {
 
-		Logger.SaveScheduledEvent(schedule)
+		Logger.SaveSchedule(schedule)
 
 		var gotSchedule Schedule
 		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)
@@ -404,7 +404,7 @@ func TestSaveScheduledEvent(t *testing.T) {
 		wantedText := "wanted text"
 		schedule.MessageText = wantedText
 
-		Logger.SaveScheduledEvent(schedule)
+		Logger.SaveSchedule(schedule)
 
 		var gotSchedule Schedule
 		db.Raw("SELECT * FROM schedules WHERE sess_key = ?", "sesskey").Scan(&gotSchedule)

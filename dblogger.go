@@ -211,8 +211,8 @@ func (db *DBLogger) CreateLogEntry(msgObj messageResponse) {
 	db.Create(entry)
 }
 
-// SaveScheduledEvent saves the event to the database
-func (db *DBLogger) SaveScheduledEvent(schedule *Schedule) {
+// SaveSchedule saves the event to the database
+func (db *DBLogger) SaveSchedule(schedule *Schedule) {
 	if !db.isActive {
 		return
 	}
@@ -235,8 +235,10 @@ func (db *DBLogger) GetSchedulesFromDB(sMap ScheduleMap) {
 	var schedules []Schedule
 	db.Find(&schedules)
 
-	for _, schedule := range schedules {
-		if !schedule.CompletedOn.IsZero() && !schedule.IsRecurring {
+	for i := range schedules {
+		schedule := schedules[i]
+
+		if schedule.IsFinished {
 			continue
 		}
 

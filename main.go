@@ -89,6 +89,14 @@ list [groupName]
 groupName
   Replaces groupName with mentions for the group members along with the following/surrounding/leading message.`
 
+	options["schedule:onetime"] = `
+schedule onetime <label> <time RFC3339> <groupName> <Message>
+  Schedules a message to be sent to the specified group at the given time. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ). IF you need help converting, see (helpful link).`
+
+	options["schedule:list"] = `
+schedule list
+  Lists information about the scheduled events for the room`
+
 	usageShort := "`@HGNotify [options] [GroupName] [mentions...]`"
 
 	if option == "usageShort" {
@@ -128,7 +136,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 		summary,
 		limitation,
 		examples,
-		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 			options["create"],
 			options["add"],
 			options["remove"],
@@ -136,6 +144,8 @@ Delete a group: "@HGNotify disband Umbrella"`
 			options["restrict"],
 			options["list"],
 			options["notify"],
+			options["schedule:onetime"],
+			options["schedule:list"],
 			options["usage"],
 		),
 		notes,
