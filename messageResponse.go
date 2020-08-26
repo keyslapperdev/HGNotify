@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -203,6 +204,8 @@ func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageRespon
 		switch args["subAction"] {
 		case "onetime":
 			msg = Scheduler.CreateOnetime(args, Groups, msgObj)
+		case "list":
+			msg = Scheduler.List(msgObj)
 		}
 
 	default:
@@ -215,38 +218,50 @@ func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageRespon
 }
 
 func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
-	if len(elems) < 7 {
-		return fmt.Errorf("Not enough arguments for schedule action\n ```%s``` ", usage("onetime"))
+	if len(elems) < 3 {
+		return errors.New("Not enough arguments for schedule action")
 	}
 
-	if elems[2] != "onetime" {
-		return fmt.Errorf("Incorrect subaction called: %q", elems[2])
-	}
-	(*args)["subAction"] = "onetime"
+	(*args)["subAction"] = elems[2]
 
-	ptrn := regexp.MustCompile(`^\w{3,10}$`)
-	if !ptrn.Match([]byte(elems[3])) {
-		return fmt.Errorf("Label be Alphanumeric between 3 and 10 characters\n ```%s```", usage("onetime"))
-	}
-	(*args)["label"] = elems[3]
+	switch (*args)["subAction"] {
+	case "onetime":
+		if len(elems) < 7 {
+			return fmt.Errorf("Not enough arguments for schedule onetime action\n ```%s``` ", usage("schedule:onetime"))
+		}
 
-	datetime, err := time.Parse(time.RFC3339, elems[4])
-	if err != nil {
-		return fmt.Errorf("Error parsing your time %q. Must be formatted in RFC3339 format, please try again", elems[4])
-	}
+		ptrn := regexp.MustCompile(`^\w{3,20}$`)
+		if !ptrn.Match([]byte(elems[3])) {
+			return fmt.Errorf("Label be Alphanumeric between 3 and 20 characters\n ```%s```", usage("onetime"))
+		}
+		(*args)["label"] = elems[3]
 
-	//the scheduled message has to be at least 1 hour out.
-	if !datetime.After(time.Now().Add(time.Minute * 59)) {
-		return fmt.Errorf("Scheduled message must be at least 1 hour away from now")
-	}
-	(*args)["dateTime"] = elems[4]
+		datetime, err := time.Parse(time.RFC3339, elems[4])
+		if err != nil {
+			return fmt.Errorf("Error parsing your time %q. Must be formatted in RFC3339 format, please try again", elems[4])
+		}
 
-	if !Groups.IsGroup(elems[5]) {
-		return fmt.Errorf("Specificed group %q not found", elems[5])
-	}
-	(*args)["groupName"] = elems[5]
+		//the scheduled message has to be at least 1 hour out.
+		if !datetime.After(time.Now().Add(time.Minute * 59)) {
+			return fmt.Errorf("Scheduled message must be at least 1 hour away from now")
+		}
+		(*args)["dateTime"] = elems[4]
 
-	(*args)["message"] = strings.Join(elems[6:], " ")
+		if !Groups.IsGroup(elems[5]) {
+			return fmt.Errorf("Specificed group %q not found", elems[5])
+		}
+		(*args)["groupName"] = elems[5]
+
+		(*args)["message"] = strings.Join(elems[6:], " ")
+
+	case "list":
+		(*args)["subAction"] = "list"
+
+	//case "recurring":
+	//case "remove":
+	default:
+		return fmt.Errorf("Unknown schedule subaction %q called", elems[2])
+	}
 
 	return nil
 }

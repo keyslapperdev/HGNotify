@@ -103,6 +103,38 @@ func TestParseArgs(t *testing.T) {
 		}
 	})
 
+	t.Run("Properly dispatches list action", func(t *testing.T) {
+		Groups := make(GroupMap)
+		msgObj := newMsgObj
+		wantedAction := "schedule"
+		wantedSubAction := "list"
+
+		Groups[strings.ToLower(genRandName(10))] = new(Group)
+
+		msgObj.Message.Text = fmt.Sprintf("%s %s %s ",
+			BotName, wantedAction, wantedSubAction,
+		)
+		args, msg, okay := msgObj.ParseArgs(Groups)
+
+		if !okay {
+			t.Fatalf("Error parsing schedule onetime request: %s", msg)
+		}
+
+		if args["action"] != wantedAction {
+			t.Fatalf("Action %q not returned, got: %q",
+				wantedAction,
+				args["action"],
+			)
+		}
+
+		if args["subAction"] != wantedSubAction {
+			t.Fatalf("Sub action %q not returned, got: %q",
+				wantedSubAction,
+				args["subAction"],
+			)
+		}
+	})
+
 	t.Run("Properly identifies as from admin", func(t *testing.T) {
 		Groups := make(GroupMap)
 		msgObj := newMsgObj
@@ -213,7 +245,7 @@ func TestInspectMessage(t *testing.T) {
 		}
 	})
 
-	scheduleSubActions := []string{"onetime"}
+	scheduleSubActions := []string{"onetime", "list"}
 
 	t.Run("Correctly calls method for given schedule sub action", func(t *testing.T) {
 		for _, action := range scheduleSubActions {
@@ -283,5 +315,10 @@ type MockScheduler map[string]bool
 
 func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj messageResponse) string {
 	ms["onetime"] = true
+	return ""
+}
+
+func (ms MockScheduler) List(msgObj messageResponse) string {
+	ms["list"] = true
 	return ""
 }
