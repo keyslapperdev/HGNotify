@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-delve/delve v1.5.0 // indirect
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/jinzhu/gorm v1.9.12
