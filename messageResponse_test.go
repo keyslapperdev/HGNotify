@@ -66,7 +66,7 @@ func TestParseArgs(t *testing.T) {
 			args, msg, okay := msgObj.ParseArgs(Groups)
 
 			if !okay {
-				t.Fatalf("Error parsing schedule onetime request: %s", msg)
+				t.Fatalf("Error parsing create schedule request: %s", msg)
 			}
 
 			if args["action"] != wantedAction {
@@ -120,7 +120,7 @@ func TestParseArgs(t *testing.T) {
 		args, msg, okay := msgObj.ParseArgs(Groups)
 
 		if !okay {
-			t.Fatalf("Error parsing schedule onetime request: %s", msg)
+			t.Fatalf("Error parsing schedule list request: %s", msg)
 		}
 
 		if args["action"] != wantedAction {
@@ -134,6 +134,47 @@ func TestParseArgs(t *testing.T) {
 			t.Fatalf("Sub action %q not returned, got: %q",
 				wantedSubAction,
 				args["subAction"],
+			)
+		}
+	})
+
+	t.Run("Properly dispatches remove action", func(t *testing.T) {
+		Groups := make(GroupMap)
+		msgObj := newMsgObj
+		wantedAction := "schedule"
+		wantedSubAction := "remove"
+		wantedLabel := RandString(10)
+
+		Groups[strings.ToLower(genRandName(10))] = new(Group)
+
+		msgObj.Message.Text = fmt.Sprintf("%s %s %s %s",
+			BotName, wantedAction, wantedSubAction, wantedLabel,
+		)
+
+		args, msg, okay := msgObj.ParseArgs(Groups)
+
+		if !okay {
+			t.Fatalf("Error parsing schedule remove request: %s", msg)
+		}
+
+		if args["action"] != wantedAction {
+			t.Fatalf("Action %q not returned, got: %q",
+				wantedAction,
+				args["action"],
+			)
+		}
+
+		if args["subAction"] != wantedSubAction {
+			t.Fatalf("Sub action %q not returned, got: %q",
+				wantedSubAction,
+				args["subAction"],
+			)
+		}
+
+		if args["label"] != wantedLabel {
+			t.Fatalf("Correct label %q not returned, got: %q",
+				wantedLabel,
+				args["Label"],
 			)
 		}
 	})
@@ -248,7 +289,7 @@ func TestInspectMessage(t *testing.T) {
 		}
 	})
 
-	scheduleSubActions := []string{"onetime", "list", "recurring"}
+	scheduleSubActions := []string{"onetime", "list", "recurring", "remove"}
 
 	t.Run("Correctly calls method for given schedule sub action", func(t *testing.T) {
 		for _, action := range scheduleSubActions {
@@ -323,6 +364,11 @@ func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj me
 
 func (ms MockScheduler) CreateRecurring(args Arguments, Groups GroupMgr, msgObj messageResponse) string {
 	ms["recurring"] = true
+	return ""
+}
+
+func (ms MockScheduler) Remove(args Arguments, msgObj messageResponse) string {
+	ms["remove"] = true
 	return ""
 }
 

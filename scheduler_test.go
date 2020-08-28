@@ -101,6 +101,30 @@ func testCreateSchedule(t *testing.T, scheduler ScheduleMap, createFunc schedCre
 			}
 		})
 	})
+
+	t.Run("Successfully updates scheduled event", func(t *testing.T) {
+		updatedGroupName := genRandName(10)
+
+		Groups[strings.ToLower(updatedGroupName)] = new(Group)
+		Groups[strings.ToLower(updatedGroupName)].ID = 2
+
+		args["groupName"] = updatedGroupName
+
+		createFunc(args, Groups, msgObj)
+
+		gotSchedule := scheduler[msgObj.Room.GID+":"+args["label"]]
+
+		if gotSchedule.UpdatedOn.IsZero() {
+			t.Error("Updating message didn't update updateOn time")
+		}
+
+		if gotSchedule.GroupID != Groups[strings.ToLower(updatedGroupName)].ID {
+			t.Errorf("Field 'GroupID' not updated \nGot: %+v\nWanted: %+v\n",
+				gotSchedule.GroupID,
+				Groups[strings.ToLower(updatedGroupName)].ID,
+			)
+		}
+	})
 }
 
 func TestListSchedules(t *testing.T) {
@@ -158,6 +182,46 @@ func TestListSchedules(t *testing.T) {
 				scheduleYaml2,
 				gotText,
 			)
+		}
+	})
+}
+
+func TestRemoveSchedule(t *testing.T) {
+	Logger.Active(false)
+
+	roomGID := genRoomGID(10)
+	labelToRemove := RandString(10)
+
+	args := make(Arguments)
+	args["label"] = labelToRemove
+
+	msgObj := messageResponse{}
+	msgObj.Room.GID = roomGID
+
+	schedKeyToRemove := roomGID + ":" + labelToRemove
+	sm := make(ScheduleMap)
+	sm[schedKeyToRemove] = &Schedule{
+		Creator:      "Meee",
+		IsRecurring:  false,
+		CreatedOn:    time.Now(),
+		ExecuteOn:    time.Now().Add(time.Hour * 2),
+		GroupID:      1,
+		MessageLabel: "MessageLabel",
+		MessageText:  "Text",
+		timer:        time.NewTimer(time.Hour), // if the schedule is being removed the timer should be running
+	}
+
+	sm[roomGID+":"+RandString(10)] = &Schedule{}
+
+	t.Run("Removes single schedule", func(t *testing.T) {
+		sm.Remove(args, msgObj)
+
+		if len(sm) != 1 {
+			t.Errorf("Incorrect amount of schedules found.\nGot: %d\nExpected 1\n", len(sm))
+		}
+
+		if sm.hasSchedule(schedKeyToRemove) {
+			t.Error("Requested schedule not removed")
 		}
 	})
 }

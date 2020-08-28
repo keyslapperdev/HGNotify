@@ -474,7 +474,7 @@ func TestGetSchedulesFromDB(t *testing.T) {
 		for _, label := range wantedLabels {
 			schedKey := "sess:" + label
 
-			if !scheduleMap.HasSchedule(schedKey) {
+			if !scheduleMap.hasSchedule(schedKey) {
 				missing++
 			}
 		}

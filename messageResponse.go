@@ -206,6 +206,8 @@ func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageRespon
 			msg = Scheduler.CreateOnetime(args, Groups, msgObj)
 		case "recurring":
 			msg = Scheduler.CreateRecurring(args, Groups, msgObj)
+		case "remove":
+			msg = Scheduler.Remove(args, msgObj)
 		case "list":
 			msg = Scheduler.List(msgObj)
 		}
@@ -259,9 +261,18 @@ func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
 		(*args)["message"] = strings.Join(elems[6:], " ")
 
 	case "list":
-		(*args)["subAction"] = "list"
 
-	//case "remove":
+	case "remove":
+		if len(elems) < 4 {
+			return fmt.Errorf("Not enough arguments for schedule %s action\n ```%s``` ", (*args)["subAction"], usage("schedule:"+(*args)["subAction"]))
+		}
+
+		ptrn := regexp.MustCompile(`^\w{3,20}$`)
+		if !ptrn.Match([]byte(elems[3])) {
+			return fmt.Errorf("Label must be alphanumeric between 3 and 20 characters\n ```%s```", usage("schedule:"+(*args)["subAction"]))
+		}
+		(*args)["label"] = elems[3]
+
 	default:
 		return fmt.Errorf("Unknown schedule subaction %q called", elems[2])
 	}

@@ -15,6 +15,7 @@ import (
 type ScheduleMgr interface {
 	CreateOnetime(Arguments, GroupMgr, messageResponse) string
 	CreateRecurring(Arguments, GroupMgr, messageResponse) string
+	Remove(Arguments, messageResponse) string
 	List(messageResponse) string
 }
 
@@ -48,8 +49,8 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 
 	schedKey := msgObj.Room.GID + ":" + args["label"]
 
-	if sm.HasSchedule(schedKey) {
-		schedule = sm.GetSchedule(schedKey)
+	if sm.hasSchedule(schedKey) {
+		schedule = sm.getSchedule(schedKey)
 		schedule.UpdatedOn = time.Now()
 	} else {
 		schedule = new(Schedule)
@@ -84,8 +85,8 @@ func (sm ScheduleMap) CreateRecurring(args Arguments, Groups GroupMgr, msgObj me
 
 	schedKey := msgObj.Room.GID + ":" + args["label"]
 
-	if sm.HasSchedule(schedKey) {
-		schedule = sm.GetSchedule(schedKey)
+	if sm.hasSchedule(schedKey) {
+		schedule = sm.getSchedule(schedKey)
 		schedule.UpdatedOn = time.Now()
 	} else {
 		schedule = new(Schedule)
@@ -150,6 +151,29 @@ func (sm ScheduleMap) List(msgObj messageResponse) string {
 	return fmt.Sprintf("Here are a list of the scheduled messages for this room ```%s```", schedList)
 }
 
+// Remove marks the specified schedule as finished, saves these changes to
+// the database, then deletes the key for the schedule.
+func (sm ScheduleMap) Remove(args Arguments, msgObj messageResponse) string {
+	label := args["label"]
+	roomID := msgObj.Room.GID
+
+	schedKey := roomID + ":" + label
+
+	if sm.hasSchedule(schedKey) {
+		schedule := sm.getSchedule(schedKey)
+		schedule.timer.Stop()
+		schedule.IsFinished = true
+
+		Logger.SaveSchedule(schedule)
+
+		delete(sm, schedKey)
+
+		return fmt.Sprintf("Removed %q from scheduler.", label)
+	}
+
+	return fmt.Sprintf("Message %q not found to be removed.", label)
+}
+
 // GetLabels returns a list of the rooms schedules have been created for
 func (sm ScheduleMap) GetLabels() []string {
 	var labels []string
@@ -162,13 +186,13 @@ func (sm ScheduleMap) GetLabels() []string {
 }
 
 // GetSchedule returns the schedule for the given label
-func (sm ScheduleMap) GetSchedule(schedKey string) *Schedule {
+func (sm ScheduleMap) getSchedule(schedKey string) *Schedule {
 	return sm[schedKey]
 }
 
 // HasSchedule checks to see if the schedule being called
 // already exists
-func (sm ScheduleMap) HasSchedule(schedKey string) bool {
+func (sm ScheduleMap) hasSchedule(schedKey string) bool {
 	_, exists := sm[schedKey]
 	return exists
 }
