@@ -10,6 +10,11 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
+const (
+	connRetryCount = 10
+	connRetryWait  = time.Second * 3
+)
+
 //DBLogger struct just isa pointer to a gorm.DB object, it just holds
 //the DB object so that I can throw methods on it.
 type DBLogger struct {
@@ -27,18 +32,25 @@ type NotifyLog struct {
 
 //startDBLogger is used to intialize the logger
 func startDBLogger(conf DBConfig) DBLogger {
-	//I format everything with gofmt. Because of the colon after DBUser
-	//makes gofmt think the lower lines are apart of switch case statement.
-	//Hence the weird indention. I'd rather everything be formatted as gofmt
-	//dictates than not. /shrug
-	db, err := gorm.Open("mysql", fmt.Sprintf(
-		"%s:%s@(%s)/%s?%s",
-		conf.DBUser,
-		conf.DBPass,
-		conf.DBHost,
-		conf.DBName,
-		"charset=utf8mb4&parseTime=True",
-	))
+	var db *gorm.DB
+	var err error
+
+	for i := 0; i < connRetryCount; i++ {
+		db, err = gorm.Open("mysql", fmt.Sprintf(
+			"%s:%s@(%s)/%s?%s",
+			conf.DBUser,
+			conf.DBPass,
+			conf.DBHost,
+			conf.DBName,
+			"charset=utf8mb4&parseTime=True",
+		))
+
+		if err == nil {
+			break
+		}
+
+		time.Sleep(connRetryWait)
+	}
 
 	checkError(err)
 
