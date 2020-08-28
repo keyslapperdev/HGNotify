@@ -100,6 +100,7 @@ func (sm ScheduleMap) CreateRecurring(args Arguments, Groups GroupMgr, msgObj me
 	schedule.ThreadKey = msgObj.Message.Thread.Name
 	schedule.MessageLabel = args["label"]
 	schedule.MessageText = args["message"]
+	schedule.IsFinished = false
 
 	schedule.StartTimer()
 
@@ -107,13 +108,14 @@ func (sm ScheduleMap) CreateRecurring(args Arguments, Groups GroupMgr, msgObj me
 
 	go Logger.SaveSchedule(schedule)
 
-	return fmt.Sprintf("Scheduled recurring message %q for group %q to be sent on %s\n",
+	return fmt.Sprintf("Scheduled recurring message %q for group %q to be sent on %s.\n",
 		schedule.MessageLabel,
 		args["groupName"],
 		fmt.Sprintf(
-			"%s's @ %s",
+			"%s's @ %s, starting on %s",
 			schedule.ExecuteOn.Weekday(),
-			schedule.ExecuteOn.Format("3:04 PM MST"),
+			schedule.ExecuteOn.Format(time.Kitchen),
+			schedule.ExecuteOn.Format("Monday, January 2, 2006"),
 		),
 	)
 }

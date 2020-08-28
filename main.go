@@ -91,7 +91,11 @@ groupName
 
 	options["schedule:onetime"] = `
 schedule onetime <label> <time RFC3339> <groupName> <Message>
-  Schedules a message to be sent to the specified group at the given time. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ). IF you need help converting, see (helpful link).`
+  Schedules a message to be sent to the specified group at the given time. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ).`
+
+	options["schedule:recurring"] = `
+schedule recurring <label> <time RFC3339> <groupName> <Message>
+  Schedules a message to be sent to the specified group at the given time on a weekly cycle. More specifically, the message will repeat on a 7 day cycle until it's removed. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ).`
 
 	options["schedule:list"] = `
 schedule list
@@ -136,7 +140,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 		summary,
 		limitation,
 		examples,
-		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 			options["create"],
 			options["add"],
 			options["remove"],
@@ -145,6 +149,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 			options["list"],
 			options["notify"],
 			options["schedule:onetime"],
+			options["schedule:recurring"],
 			options["schedule:list"],
 			options["usage"],
 		),

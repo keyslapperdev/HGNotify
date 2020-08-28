@@ -46,62 +46,65 @@ func TestParseArgs(t *testing.T) {
 		}
 	})
 
-	t.Run("Schedule onetime parsed and returned", func(t *testing.T) {
-		Groups := make(GroupMap)
-		msgObj := newMsgObj
-		wantedAction := "schedule"
-		wantedSubAction := "onetime"
-		wantedLabel := RandString(10)
-		wantedDatetime := time.Now().Add(time.Hour).Format(time.RFC3339)
-		wantedGroupName := genRandName(10)
+	wantedSubActions := [2]string{"onetime", "recurring"}
 
-		Groups[strings.ToLower(wantedGroupName)] = new(Group)
+	for _, wantedSubAction := range wantedSubActions {
+		t.Run("Schedule "+wantedSubAction+" parsed and returned", func(t *testing.T) {
+			Groups := make(GroupMap)
+			msgObj := newMsgObj
+			wantedAction := "schedule"
+			wantedLabel := RandString(10)
+			wantedDatetime := time.Now().Add(time.Hour).Format(time.RFC3339)
+			wantedGroupName := genRandName(10)
 
-		msgObj.Message.Text = fmt.Sprintf("%s %s %s %s %v %s some message",
-			BotName, wantedAction, wantedSubAction,
-			wantedLabel, wantedDatetime, wantedGroupName,
-		)
-		args, msg, okay := msgObj.ParseArgs(Groups)
+			Groups[strings.ToLower(wantedGroupName)] = new(Group)
 
-		if !okay {
-			t.Fatalf("Error parsing schedule onetime request: %s", msg)
-		}
-
-		if args["action"] != wantedAction {
-			t.Fatalf("Action %q not returned, got: %q",
-				wantedAction,
-				args["action"],
+			msgObj.Message.Text = fmt.Sprintf("%s %s %s %s %v %s some message",
+				BotName, wantedAction, wantedSubAction,
+				wantedLabel, wantedDatetime, wantedGroupName,
 			)
-		}
+			args, msg, okay := msgObj.ParseArgs(Groups)
 
-		if args["subAction"] != wantedSubAction {
-			t.Fatalf("Sub action %q not returned, got: %q",
-				wantedSubAction,
-				args["subAction"],
-			)
-		}
+			if !okay {
+				t.Fatalf("Error parsing schedule onetime request: %s", msg)
+			}
 
-		if args["label"] != wantedLabel {
-			t.Fatalf("Label %q not returned, got: %q",
-				wantedLabel,
-				args["label"],
-			)
-		}
+			if args["action"] != wantedAction {
+				t.Fatalf("Action %q not returned, got: %q",
+					wantedAction,
+					args["action"],
+				)
+			}
 
-		if args["dateTime"] != wantedDatetime {
-			t.Fatalf("DateTime %q not returned, got: %q",
-				wantedDatetime,
-				args["dateTime"],
-			)
-		}
+			if args["subAction"] != wantedSubAction {
+				t.Fatalf("Sub action %q not returned, got: %q",
+					wantedSubAction,
+					args["subAction"],
+				)
+			}
 
-		if args["groupName"] != wantedGroupName {
-			t.Fatalf("Group Name %q not returned, got: %q",
-				wantedGroupName,
-				args["groupName"],
-			)
-		}
-	})
+			if args["label"] != wantedLabel {
+				t.Fatalf("Label %q not returned, got: %q",
+					wantedLabel,
+					args["label"],
+				)
+			}
+
+			if args["dateTime"] != wantedDatetime {
+				t.Fatalf("DateTime %q not returned, got: %q",
+					wantedDatetime,
+					args["dateTime"],
+				)
+			}
+
+			if args["groupName"] != wantedGroupName {
+				t.Fatalf("Group Name %q not returned, got: %q",
+					wantedGroupName,
+					args["groupName"],
+				)
+			}
+		})
+	}
 
 	t.Run("Properly dispatches list action", func(t *testing.T) {
 		Groups := make(GroupMap)
@@ -245,7 +248,7 @@ func TestInspectMessage(t *testing.T) {
 		}
 	})
 
-	scheduleSubActions := []string{"onetime", "list"}
+	scheduleSubActions := []string{"onetime", "list", "recurring"}
 
 	t.Run("Correctly calls method for given schedule sub action", func(t *testing.T) {
 		for _, action := range scheduleSubActions {

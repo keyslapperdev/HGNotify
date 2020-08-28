@@ -204,6 +204,8 @@ func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageRespon
 		switch args["subAction"] {
 		case "onetime":
 			msg = Scheduler.CreateOnetime(args, Groups, msgObj)
+		case "recurring":
+			msg = Scheduler.CreateRecurring(args, Groups, msgObj)
 		case "list":
 			msg = Scheduler.List(msgObj)
 		}
@@ -225,14 +227,16 @@ func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
 	(*args)["subAction"] = elems[2]
 
 	switch (*args)["subAction"] {
+	case "recurring":
+		fallthrough
 	case "onetime":
 		if len(elems) < 7 {
-			return fmt.Errorf("Not enough arguments for schedule onetime action\n ```%s``` ", usage("schedule:onetime"))
+			return fmt.Errorf("Not enough arguments for schedule %s action\n ```%s``` ", (*args)["subAction"], usage("schedule:"+(*args)["subAction"]))
 		}
 
 		ptrn := regexp.MustCompile(`^\w{3,20}$`)
 		if !ptrn.Match([]byte(elems[3])) {
-			return fmt.Errorf("Label be Alphanumeric between 3 and 20 characters\n ```%s```", usage("onetime"))
+			return fmt.Errorf("Label must be alphanumeric between 3 and 20 characters\n ```%s```", usage("schedule:"+(*args)["subAction"]))
 		}
 		(*args)["label"] = elems[3]
 
@@ -241,9 +245,9 @@ func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
 			return fmt.Errorf("Error parsing your time %q. Must be formatted in RFC3339 format, please try again", elems[4])
 		}
 
-		//the scheduled message has to be at least 1 hour out.
-		if !datetime.After(time.Now().Add(time.Minute * 59)) {
-			return fmt.Errorf("Scheduled message must be at least 1 hour away from now")
+		//the scheduled message has to be at least 10 minutes out.
+		if !datetime.After(time.Now().Add(time.Minute * 9)) {
+			return fmt.Errorf("Scheduled message must be at least 10 minutes away from now")
 		}
 		(*args)["dateTime"] = elems[4]
 
@@ -257,7 +261,6 @@ func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
 	case "list":
 		(*args)["subAction"] = "list"
 
-	//case "recurring":
 	//case "remove":
 	default:
 		return fmt.Errorf("Unknown schedule subaction %q called", elems[2])
