@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-yaml/yaml"
 	"github.com/jinzhu/gorm"
+	yaml "gopkg.in/yaml.v2"
 )
 
 //GroupMap type is used to hold all group information in memory for

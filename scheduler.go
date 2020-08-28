@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-yaml/yaml"
 	chat "google.golang.org/api/chat/v1"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // ScheduleMgr maintains a description of what the scheduler
