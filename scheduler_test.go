@@ -8,7 +8,19 @@ import (
 	"github.com/go-yaml/yaml"
 )
 
+type schedCreateFunc func(Arguments, GroupMgr, messageResponse) string
+
 func TestCreateOnetime(t *testing.T) {
+	scheduler := make(ScheduleMap)
+	testCreateSchedule(t, scheduler, scheduler.CreateOnetime, false)
+}
+
+func TestCreateRecurring(t *testing.T) {
+	scheduler := make(ScheduleMap)
+	testCreateSchedule(t, scheduler, scheduler.CreateRecurring, true)
+}
+
+func testCreateSchedule(t *testing.T, scheduler ScheduleMap, createFunc schedCreateFunc, isRecurring bool) {
 	Logger.Active(false)
 
 	wantedGroupName := genRandName(10)
@@ -28,10 +40,8 @@ func TestCreateOnetime(t *testing.T) {
 	msgObj.Message.Sender.GID = genUserGID(0)
 	msgObj.Message.Thread.Name = RandString(10)
 
-	t.Run("Successfully adds onetime event", func(t *testing.T) {
-		scheduler := make(ScheduleMap)
-
-		scheduler.CreateOnetime(args, Groups, msgObj)
+	t.Run("Successfully creates scheduled event", func(t *testing.T) {
+		createFunc(args, Groups, msgObj)
 
 		gotSchedule := scheduler[msgObj.Room.GID+":"+args["label"]]
 
@@ -42,8 +52,8 @@ func TestCreateOnetime(t *testing.T) {
 			)
 		}
 
-		if gotSchedule.IsRecurring {
-			t.Error("Onetime schedule marked as recurring")
+		if gotSchedule.IsRecurring != isRecurring {
+			t.Error("Schedule marked incorrectly")
 		}
 
 		if gotSchedule.ExecuteOn.Format(time.RFC3339) != args["dateTime"] {
@@ -81,8 +91,10 @@ func TestCreateOnetime(t *testing.T) {
 			)
 		}
 
+		// Timer is started in async, so I'm adding a little sleep
+		// give it the time it needs
 		t.Run("Starts timer", func(t *testing.T) {
-			time.Sleep(time.Microsecond)
+			time.Sleep(time.Millisecond)
 
 			if gotSchedule.timer == nil {
 				t.Errorf("Timer not started.")

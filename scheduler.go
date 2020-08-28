@@ -14,6 +14,7 @@ import (
 // is be able to do
 type ScheduleMgr interface {
 	CreateOnetime(Arguments, GroupMgr, messageResponse) string
+	CreateRecurring(Arguments, GroupMgr, messageResponse) string
 	List(messageResponse) string
 }
 
@@ -73,7 +74,47 @@ func (sm ScheduleMap) CreateOnetime(args Arguments, Groups GroupMgr, msgObj mess
 	return fmt.Sprintf("Scheduled onetime message %q for group %q to be sent on %q",
 		schedule.MessageLabel,
 		args["groupName"],
-		schedule.ExecuteOn.Format("Monday, 2 January 2006 3:04 PM CDT"),
+		schedule.ExecuteOn.Format("Monday, 2 January 2006 3:04 PM MST"),
+	)
+}
+
+// CreateRecurring schedules a message to be sent out weekly in the future
+func (sm ScheduleMap) CreateRecurring(args Arguments, Groups GroupMgr, msgObj messageResponse) string {
+	var schedule *Schedule
+
+	schedKey := msgObj.Room.GID + ":" + args["label"]
+
+	if sm.HasSchedule(schedKey) {
+		schedule = sm.GetSchedule(schedKey)
+		schedule.UpdatedOn = time.Now()
+	} else {
+		schedule = new(Schedule)
+		schedule.CreatedOn = time.Now()
+	}
+
+	schedule.SessKey = msgObj.Room.GID + ":" + msgObj.Message.Sender.GID
+	schedule.Creator = msgObj.Message.Sender.Name
+	schedule.IsRecurring = true
+	schedule.ExecuteOn, _ = time.Parse(time.RFC3339, args["dateTime"])
+	schedule.GroupID = Groups.GetGroup(args["groupName"]).Model.ID
+	schedule.ThreadKey = msgObj.Message.Thread.Name
+	schedule.MessageLabel = args["label"]
+	schedule.MessageText = args["message"]
+
+	schedule.StartTimer()
+
+	sm[schedKey] = schedule
+
+	go Logger.SaveSchedule(schedule)
+
+	return fmt.Sprintf("Scheduled recurring message %q for group %q to be sent on %s\n",
+		schedule.MessageLabel,
+		args["groupName"],
+		fmt.Sprintf(
+			"%s's @ %s",
+			schedule.ExecuteOn.Weekday(),
+			schedule.ExecuteOn.Format("3:04 PM MST"),
+		),
 	)
 }
 
@@ -138,9 +179,7 @@ func (s *Schedule) StartTimer() {
 			s.timer.Stop()
 		}
 
-		if !s.IsRecurring &&
-			time.Now().After(s.ExecuteOn) &&
-			s.CompletedOn.IsZero() {
+		if !s.IsFinished && time.Now().After(s.ExecuteOn) {
 			s.Send()
 			return
 		}
@@ -192,7 +231,12 @@ func (s *Schedule) Send() {
 func (s *Schedule) complete() {
 	s.CompletedOn = time.Now()
 
-	if !s.IsRecurring {
+	if s.IsRecurring {
+		// Since the scheduled messages are all weekly, once they've
+		// completed a run, add 7 days (168 hours)
+		s.ExecuteOn.Add(time.Hour * 168)
+		s.StartTimer()
+	} else {
 		s.IsFinished = true
 	}
 

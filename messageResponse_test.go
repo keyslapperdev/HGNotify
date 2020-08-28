@@ -318,6 +318,11 @@ func (ms MockScheduler) CreateOnetime(args Arguments, Groups GroupMgr, msgObj me
 	return ""
 }
 
+func (ms MockScheduler) CreateRecurring(args Arguments, Groups GroupMgr, msgObj messageResponse) string {
+	ms["recurring"] = true
+	return ""
+}
+
 func (ms MockScheduler) List(msgObj messageResponse) string {
 	ms["list"] = true
 	return ""
