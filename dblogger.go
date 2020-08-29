@@ -10,6 +10,8 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
+// When statring up the application, this data detemrines
+// how long the app will wait for the
 const (
 	connRetryCount = 10
 	connRetryWait  = time.Second * 3

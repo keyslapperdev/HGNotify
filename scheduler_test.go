@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-yaml/yaml"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type schedCreateFunc func(Arguments, GroupMgr, messageResponse) string
