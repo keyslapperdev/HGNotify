@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ func TestSetupTables(t *testing.T) {
 		Logger.SetupTables()
 
 		gotTables := make([]struct{ TableName string }, 0)
-		db.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = 'hgnotify_beta';").Scan(&gotTables)
+		db.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = ?;", os.Getenv("HGNOTIFY_DB_NAME")).Scan(&gotTables)
 
 		wantedTables := []string{"notify_logs", "members", "groups", "schedules"}
 
