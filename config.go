@@ -1,30 +1,24 @@
 package main
 
-import (
-	"io/ioutil"
-
-	"github.com/go-yaml/yaml"
-)
+import "os"
 
 //HGNConfig struct used to consume configuration details
 type HGNConfig struct {
-	CertFile    string `yaml:"certFile"`
-	CertKeyFile string `yaml:"certKeyFile"`
+	CertFile    string
+	CertKeyFile string
+	UseSSL      string
 
-	BotName  string `yaml:"botName"`
-	MasterID string `yaml:"masterID"`
-
-	Port string `yaml:"port"`
+	BotName  string
+	MasterID string
 }
 
 //DBConfig struct used to consume Configuration details
 //regarding database access
 type DBConfig struct {
-	Driver string `yaml:"driver"`
-	DBUser string `yaml:"user"`
-	DBName string `yaml:"name"`
-	DBPass string `yaml:"password"`
-	DBOpts string `yaml:"options"`
+	DBHost string
+	DBUser string
+	DBName string
+	DBPass string
 }
 
 //loadConfig specifcially loads configuration information
@@ -32,22 +26,25 @@ type DBConfig struct {
 //I'm pretty sure there is a better way to use one function
 //to load and distribute configs where they are needed, but
 //I haven't quite figreud out the way to do so just yet.
-func loadConfig(src string) (config HGNConfig) {
-	configB, err := ioutil.ReadFile(src)
-	checkError(err)
+func initConfig() (config HGNConfig) {
 
-	yaml.Unmarshal(configB, &config)
+	return HGNConfig{
+		CertFile:    os.Getenv("HGNOTIFY_CERT_FILE"),
+		CertKeyFile: os.Getenv("HGNOTIFY_CERT_KEY_FILE"),
+		UseSSL:      os.Getenv("HGNOTIFY_USE_SSL"),
 
-	return
+		BotName:  os.Getenv("HGNOTIFY_BOT_NAME"),
+		MasterID: os.Getenv("HGNOTIFY_MASTER_GID"),
+	}
 }
 
 //loadDBConfig specifically loads configuration information
 //for the database as oppposed to the bot/connections
-func loadDBConfig(src string) (config DBConfig) {
-	configB, err := ioutil.ReadFile(src)
-	checkError(err)
-
-	yaml.Unmarshal(configB, &config)
-
-	return
+func initDBConfig() (config DBConfig) {
+	return DBConfig{
+		DBHost: os.Getenv("HGNOTIFY_DB_HOST"),
+		DBUser: os.Getenv("HGNOTIFY_DB_USER"),
+		DBName: os.Getenv("HGNOTIFY_DB_NAME"),
+		DBPass: os.Getenv("HGNOTIFY_DB_PASS"),
+	}
 }

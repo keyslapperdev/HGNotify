@@ -1,19 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 )
 
 //Initializing global variables
 var (
-	Config   = loadConfig("secret/config.yml")
-	dbConfig = loadDBConfig("secret/dbconfig.yml")
+	Config = initConfig()
 
-	Groups = make(GroupList)
-	Logger = startDBLogger(dbConfig)
+	Logger = startDBLogger(initDBConfig())
 )
 
 //Setting up general configurations for usage of the bot
@@ -21,87 +17,41 @@ var (
 	CertFile    = Config.CertFile
 	CertKeyFile = Config.CertKeyFile
 
-	port = Config.Port
-
 	BotName  = Config.BotName
 	MasterID = Config.MasterID
+
+	baseRoute = "/"
+	port      = ":8888"
 )
 
-type (
-	//GenericJSON holds type for general JSON objects
-	GenericJSON map[string]interface{}
-
-	//Arguments is generic type for passing arguments as a map
-	//between functions. I feel this is kinda an artifact of
-	//learing perl as my first language, but it sure does make
-	//things a bit more clear.
-	Arguments map[string]string
-)
+//Arguments is generic type for passing arguments as a map
+//between functions. I feel this is kinda an artifact of
+//learing perl as my first language, but it sure does make
+//things a bit more clear.
+type Arguments map[string]string
 
 func main() {
+	Groups := make(GroupMap)
+	Schedules := make(ScheduleMap)
+
 	Logger.SetupTables()
 	Logger.GetGroupsFromDB(Groups)
+	Logger.GetSchedulesFromDB(Schedules)
 
 	fmt.Println("Running!! on port " + port)
 
-	http.HandleFunc("/", theHandler)
-	e := http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
-	checkError(e)
-}
+	http.HandleFunc(baseRoute, getRequestHandler(Groups, Schedules))
+	http.HandleFunc(baseRoute+"readiness/", ReadinessCheck())
 
-func theHandler(w http.ResponseWriter, r *http.Request) {
-	var (
-		payload  GenericJSON
-		msgObj   messageResponse
-		jsonReq  []byte
-		jsonResp []byte
-		e        error
-	)
+	var err error
 
-	jsonReq, e = ioutil.ReadAll(r.Body)
-	checkError(e)
-
-	e = json.Unmarshal(jsonReq, &payload)
-	checkError(e)
-
-	switch payload["type"] {
-	case "ADDED_TO_SPACE":
-		resp := map[string]string{
-			"text": "Thank you for inviting me! Here's what I'm about:" + usage(""),
-		}
-		jsonResp, e = json.Marshal(resp)
-
-	case "MESSAGE":
-		e = json.Unmarshal(jsonReq, &msgObj)
-		checkError(e)
-
-		//Log every usage of hgnotify to the db.
-		go Logger.CreateLogEntry(msgObj)
-
-		var msg string
-		resMsg, errMsg, ok := inspectMessage(msgObj)
-
-		if !ok {
-			msg = errMsg
-		} else {
-			msg = resMsg
-		}
-
-		resp := map[string]string{
-			"text": msg,
-		}
-		jsonResp, e = json.Marshal(resp)
-
-	default:
-		//Not too sure of any message type that's not Added or Message, there is removed
-		//But that one doesn't allow messages to be sent, sooooooooo?
-		resp := map[string]string{
-			"text": "Oh, ummm! I'm not exactly sure what happened, or what type of request this is. But here's what I was made to do, if it helps." + usage(""),
-		}
-		jsonResp, e = json.Marshal(resp)
+	if Config.UseSSL == "true" {
+		err = http.ListenAndServeTLS(port, CertFile, CertKeyFile, nil)
+	} else {
+		err = http.ListenAndServe(port, nil)
 	}
 
-	fmt.Fprintf(w, "%s", string(jsonResp))
+	checkError(err)
 }
 
 func usage(option string) string {
@@ -139,6 +89,22 @@ list [groupName]
 groupName
   Replaces groupName with mentions for the group members along with the following/surrounding/leading message.`
 
+	options["schedule:onetime"] = `
+schedule onetime <label> <time RFC3339> <groupName> <Message>
+  Schedules a message to be sent to the specified group at the given time. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ).`
+
+	options["schedule:recurring"] = `
+schedule recurring <label> <time RFC3339> <groupName> <Message>
+  Schedules a message to be sent to the specified group at the given time on a weekly cycle. More specifically, the message will repeat on a 7 day cycle until it's removed. If you'd like to edit the created message, just reuse the label and that will update the message. The timestamp passed would need to be written in RFC3339 format, ex: 2020-08-25T22:57:00-05:00 (YYYY-MM-DDTHH:MM:SS-TZ).`
+
+	options["schedule:remove"] = `
+schedule remove <label>
+	Removes the given label and stops the schedule from executing.`
+
+	options["schedule:list"] = `
+schedule list
+  Lists information about the scheduled events for the room`
+
 	usageShort := "`@HGNotify [options] [GroupName] [mentions...]`"
 
 	if option == "usageShort" {
@@ -170,6 +136,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 - When managing groups, "@HGNotify" must be the first thing in the messages
 - When notifying a group the text "@HGNotify GroupName" will be replaced with the members of the group. Just a heads up, so be sure to place that where you'd like it to appear.
 
+- The bot is manged by mentioning people. If someone is unable to be mentioned, to get them removed from a group, you can reach out to the maintainer.
 - Any problems, comments, or suggestions please send me a message in gchat or email me at alexander.wilcots@endurance.com`
 
 	return fmt.Sprintf(" Usage ``%s`` Summary ```%s``` *LIMITATION* Please read ```%s``` Examples ```%s``` Options ```%s``` Notes ```%s```",
@@ -177,7 +144,7 @@ Delete a group: "@HGNotify disband Umbrella"`
 		summary,
 		limitation,
 		examples,
-		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+		fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 			options["create"],
 			options["add"],
 			options["remove"],
@@ -185,6 +152,10 @@ Delete a group: "@HGNotify disband Umbrella"`
 			options["restrict"],
 			options["list"],
 			options["notify"],
+			options["schedule:onetime"],
+			options["schedule:recurring"],
+			options["schedule:remove"],
+			options["schedule:list"],
 			options["usage"],
 		),
 		notes,

@@ -6,15 +6,29 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-yaml/yaml"
 	"github.com/jinzhu/gorm"
+	yaml "gopkg.in/yaml.v2"
 )
 
-//GroupList tpye is used to hold all group information in memory for
+//GroupMap type is used to hold all group information in memory for
 //speedy interaction with the groups.
-type (
-	GroupList map[string]*Group
-)
+type GroupMap map[string]*Group
+
+//GroupMgr is an interface to describe what needs to happen to handle
+//all actions for a group
+type GroupMgr interface {
+	Create(string, string, messageResponse) string
+	Disband(string, messageResponse) string
+	AddMembers(string, string, messageResponse) string
+	RemoveMembers(string, string, messageResponse) string
+	Restrict(string, messageResponse) string
+	Notify(string, messageResponse) string
+	List(string, messageResponse) string
+	SyncGroupMembers(string, messageResponse) string
+	SyncAllGroups(messageResponse) string
+	GetGroup(string) *Group
+	IsGroup(string) bool
+}
 
 //Group struct used to hold/model a group's structure. Note: Elements
 //with the `yaml:"-"` tag do not appear in the 'List' function
@@ -83,8 +97,12 @@ func (g *Group) removeMember(member User) (removed Member) {
 }
 
 //Create method initializes a single group.
-func (gl GroupList) Create(groupName, self string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) Create(groupName, self string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
+	}
+
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "name") {
 		return fmt.Sprintf("Cannot use %q as group name. Group names can contain letters, numbers, underscores, and dashes, maximum length is 40 characters", groupName)
 	}
@@ -94,7 +112,11 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	}
 
 	if strings.Contains(meta, "exist") {
-		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"", groupName, BotName, groupName, BotName, groupName)
+		return fmt.Sprintf("Group %q seems to already exist.\nIf you'd like to remove and recreate the group please say \"%s disband %s\" followed by \"%s create %s @Members...\"",
+			groupName,
+			BotName, groupName,
+			BotName, groupName,
+		)
 	}
 
 	var (
@@ -124,7 +146,7 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	}
 
 	if self != "" {
-		newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, msgObj.Message.Sender.User)
+		newGroup.manageMember("add", &newMembers, &numAdded, &lastNameLen, msgObj.Message.Sender)
 	}
 
 	if numAdded == 0 {
@@ -134,15 +156,20 @@ func (gl GroupList) Create(groupName, self string, msgObj messageResponse) strin
 	}
 
 	go Logger.SaveCreatedGroup(newGroup)
-	gl[saveName] = newGroup
+	gm[saveName] = newGroup
 	return fmt.Sprintf("Created group %q with %s.", groupName, newMembers)
 }
 
 //Disband method will remove a group from the list, as well, delete the group from the
 //database. The removal from the database will also remove the associated member entries
 //something to be aware of.
-func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) Disband(groupName string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
+	}
+
+	saveName, meta := gm.checkGroup(groupName, msgObj)
+
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -151,14 +178,19 @@ func (gl GroupList) Disband(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
-	go Logger.DisbandGroup(gl[saveName])
-	delete(gl, saveName)
+	go Logger.DisbandGroup(gm[saveName])
+	delete(gm, saveName)
 	return fmt.Sprintf("Group %q has been deleted, along with all its data.", groupName)
 }
 
 //AddMembers method adds a list of members to the specified group.
-func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) AddMembers(groupName, self string, msgObj messageResponse) string {
+	if groupName == "" {
+		return fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
+	}
+
+	saveName, meta := gm.checkGroup(groupName, msgObj)
+
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -178,6 +210,8 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		lastExistNameLen int
 
 		seen = checkSeen()
+
+		group = gm[saveName]
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
@@ -188,24 +222,24 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 		}
 
 		if user.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.checkMember(groupName, user.GID)
+			exist := gm.checkMember(groupName, user.GID)
 
 			if !exist {
-				gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, user)
+				group.manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, user)
 			} else {
-				gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, user)
+				group.manageMember("none", &existingMembers, &numExist, &lastExistNameLen, user)
 			}
 		}
 	}
 
 	if self != "" {
 		sender := msgObj.Message.Sender
-		exist := gl.checkMember(groupName, sender.GID)
+		exist := gm.checkMember(groupName, sender.GID)
 
 		if !exist {
-			gl[saveName].manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender.User)
+			group.manageMember("add", &addedMembers, &numAdded, &lastAddedNameLen, sender)
 		} else {
-			gl[saveName].manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender.User)
+			group.manageMember("none", &existingMembers, &numExist, &lastExistNameLen, sender)
 		}
 	}
 
@@ -216,7 +250,7 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 	if numAdded > 0 {
 		addedMembers = correctGP(addedMembers, numAdded, lastAddedNameLen)
 
-		go Logger.SaveMemberAddition(gl[saveName])
+		go Logger.SaveMemberAddition(group)
 		text += fmt.Sprintf("I've added the %s to the group %q.", addedMembers, groupName)
 	}
 
@@ -232,8 +266,8 @@ func (gl GroupList) AddMembers(groupName, self string, msgObj messageResponse) s
 //RemoveMembers method removes the member from the group. When the member is removed from
 //the group, they are not deleted from the database, but are marked as removed, just in
 //case
-func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) RemoveMembers(groupName, self string, msgObj messageResponse) string {
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -256,6 +290,8 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 		text string
 
 		seen = checkSeen()
+
+		group = gm[saveName]
 	)
 
 	for _, mention := range msgObj.Message.Mentions {
@@ -266,12 +302,12 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 		}
 
 		if user.Type != "BOT" && mention.Type == "USER_MENTION" {
-			exist := gl.checkMember(groupName, user.GID)
+			exist := gm.checkMember(groupName, user.GID)
 
 			if exist {
 				membersToRemoveDB = append(
 					membersToRemoveDB,
-					gl[saveName].manageMember(
+					group.manageMember(
 						"remove",
 						&removedMembers,
 						&numRemoved,
@@ -280,7 +316,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 					),
 				)
 			} else {
-				gl[saveName].manageMember(
+				group.manageMember(
 					"none",
 					&nonExistantMembers,
 					&numNonExist,
@@ -293,26 +329,26 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 
 	if self != "" {
 		sender := msgObj.Message.Sender
-		exist := gl.checkMember(groupName, sender.GID)
+		exist := gm.checkMember(groupName, sender.GID)
 
 		if exist {
 			membersToRemoveDB = append(
 				membersToRemoveDB,
-				gl[saveName].manageMember(
+				group.manageMember(
 					"remove",
 					&removedMembers,
 					&numRemoved,
 					&lastRemovedNameLen,
-					sender.User,
+					sender,
 				),
 			)
 		} else {
-			gl[saveName].manageMember(
+			group.manageMember(
 				"none",
 				&nonExistantMembers,
 				&numNonExist,
 				&lastNonExistNameLen,
-				sender.User,
+				sender,
 			)
 		}
 	}
@@ -324,7 +360,7 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 	if numRemoved > 0 {
 		removedMembers = correctGP(removedMembers, numRemoved, lastRemovedNameLen)
 
-		go Logger.SaveMemberRemoval(gl[saveName], membersToRemoveDB)
+		go Logger.SaveMemberRemoval(group, membersToRemoveDB)
 		text += fmt.Sprintf("I've removed the %s from %q. ", removedMembers, groupName)
 	}
 
@@ -338,8 +374,8 @@ func (gl GroupList) RemoveMembers(groupName, self string, msgObj messageResponse
 }
 
 //Restrict method restricts the interaction of the group to the room this was called in.
-func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) Restrict(groupName string, msgObj messageResponse) string {
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -348,25 +384,27 @@ func (gl GroupList) Restrict(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not mutate it.", groupName)
 	}
 
-	if gl[saveName].IsPrivate {
-		gl[saveName].IsPrivate = false
-		gl[saveName].PrivacyRoomID = ""
+	group := gm[saveName]
 
-		go Logger.UpdatePrivacyDB(gl[saveName])
+	if group.IsPrivate {
+		group.IsPrivate = false
+		group.PrivacyRoomID = ""
+
+		go Logger.UpdatePrivacyDB(group)
 		return fmt.Sprintf("I've set %q to public, now it can be used in any room.", groupName)
 	}
 
-	gl[saveName].IsPrivate = true
-	gl[saveName].PrivacyRoomID = msgObj.Room.GID
+	group.IsPrivate = true
+	group.PrivacyRoomID = msgObj.Room.GID
 
-	go Logger.UpdatePrivacyDB(gl[saveName])
+	go Logger.UpdatePrivacyDB(group)
 	return fmt.Sprintf("I've set %q to be private, the group can only be used in this room now.", groupName)
 }
 
 //Notify method is the bread and butter of this bot. It's it will take your message, and
 //replace the botname and specified group, with the users in the list.
-func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+func (gm GroupMap) Notify(groupName string, msgObj messageResponse) string {
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -375,9 +413,11 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not use it.", groupName)
 	}
 
+	group := gm[saveName]
+
 	var memberList string
 	//TODO: Check if users are in the room before adding them to list
-	for _, member := range gl[saveName].Members {
+	for _, member := range group.Members {
 		memberList += "<" + member.GID + "> "
 	}
 
@@ -414,19 +454,19 @@ func (gl GroupList) Notify(groupName string, msgObj messageResponse) string {
 
 //List method will show you either a list of all of the groups available for use, or details
 //about a specific group, depending on the options with which you call the method.
-func (gl GroupList) List(groupName string, msgObj messageResponse) string {
+func (gm GroupMap) List(groupName string, msgObj messageResponse) string {
 	if groupName == "" {
 		noneToShow := "There are no groups to show currently. :("
 
-		if len(gl) == 0 {
+		if len(gm) == 0 {
 			return noneToShow
 		}
 
 		var allGroupNames string
-		for name := range gl {
-			_, meta := gl.checkGroup(name, msgObj)
+		for name := range gm {
+			_, meta := gm.checkGroup(name, msgObj)
 			if !strings.Contains(meta, "private") {
-				allGroupNames += " | " + gl[name].Name
+				allGroupNames += " | " + gm[name].Name
 			}
 		}
 
@@ -439,7 +479,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("Here are all of the usable group names: ```%s``` If the group is private, it will not appear in this list. Ask me about a specfic group for more information. ( %s list groupName )", string([]byte(allGroupNames)[3:]), BotName)
 	}
 
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
@@ -448,7 +488,7 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 		return fmt.Sprintf("The group %q is private, and you may not view it.", groupName)
 	}
 
-	yamlList, err := yaml.Marshal(gl[saveName])
+	yamlList, err := yaml.Marshal(gm[saveName])
 	checkError(err)
 
 	return fmt.Sprintf("Here are details for %q: ```%s```", groupName, string(yamlList))
@@ -459,20 +499,22 @@ func (gl GroupList) List(groupName string, msgObj messageResponse) string {
 //for logging, and not really influencing the in-memory group list. However, there are some
 //special circumstances which may call for manual intervention. With this method, the admin
 //would be able to modify the database manually, then call this method to sync a single group.
-func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) string {
-	if !msgObj.IsMaster {
+func (gm GroupMap) SyncGroupMembers(groupName string, msgObj messageResponse) string {
+	if !msgObj.FromMaster {
 		return "Invalid option received. I'm not sure what to do about \"syncgroup\"."
 	}
 
-	saveName, meta := gl.checkGroup(groupName, msgObj)
+	saveName, meta := gm.checkGroup(groupName, msgObj)
 	if !strings.Contains(meta, "exist") {
 		return fmt.Sprintf("Group %q does not seem to exist.", groupName)
 	}
 
+	group := gm[saveName]
+
 	//Storing old member list to check later if a change has occured
-	oldMembers := gl[saveName].Members
-	Logger.SyncGroup(gl[saveName])
-	syncedMembers := gl[saveName].Members
+	oldMembers := group.Members
+	Logger.SyncGroup(group)
+	syncedMembers := group.Members
 
 	text := fmt.Sprintf("Group %q synced, ", groupName)
 
@@ -490,12 +532,12 @@ func (gl GroupList) SyncGroupMembers(groupName string, msgObj messageResponse) s
 
 //SyncAllGroups is similar to the philosophy of the above method. The main difference, is this
 //one does a sync for all of the groups, as opposed to just one.
-func (gl GroupList) SyncAllGroups(msgObj messageResponse) string {
-	if !msgObj.IsMaster {
+func (gm GroupMap) SyncAllGroups(msgObj messageResponse) string {
+	if !msgObj.FromMaster {
 		return "Invalid option received. I'm not sure what to do about \"syncallgroups\"."
 	}
 
-	Logger.SyncAllGroups(gl)
+	Logger.SyncAllGroups(gm)
 
 	fmt.Println("All groups synced")
 	return "All groups synced."
@@ -503,7 +545,7 @@ func (gl GroupList) SyncAllGroups(msgObj messageResponse) string {
 
 //checkGroups method checks the group and returns data about the group to be processed and
 //responded to accordingly
-func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
+func (gm GroupMap) checkGroup(groupName string, msgObj messageResponse) (saveName, meta string) {
 	match, err := regexp.Match(`^[\w-]{0,40}$`, []byte(groupName))
 	checkError(err)
 
@@ -514,7 +556,7 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 	}
 
 	saveName = strings.ToLower(groupName)
-	group, exist := gl[saveName]
+	group, exist := gm[saveName]
 
 	if exist {
 		meta += "exist"
@@ -523,7 +565,7 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 	}
 
 	//Nothing is private for bot admin.
-	if group.IsPrivate && !msgObj.IsMaster {
+	if group.IsPrivate && !msgObj.FromMaster {
 		if group.PrivacyRoomID != msgObj.Room.GID {
 			meta += "private"
 		}
@@ -535,16 +577,18 @@ func (gl GroupList) checkGroup(groupName string, msgObj messageResponse) (saveNa
 //checkMember method pretty much checks solely to see if the member exists. As I'm writing
 //I'm realizing this should actually be a method of the group, and not the group list. :|
 //I'll do that later.
-func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
+func (gm GroupMap) checkMember(groupName, memberID string) (here bool) {
 	saveName := strings.ToLower(groupName)
 
-	if len(gl[saveName].Members) == 0 {
+	group := gm[saveName]
+
+	if len(group.Members) == 0 {
 		here = false
 	} else {
 		here = true
 	}
 
-	for _, member := range gl[saveName].Members {
+	for _, member := range group.Members {
 		if memberID == member.GID {
 			here = true
 			break
@@ -554,6 +598,27 @@ func (gl GroupList) checkMember(groupName, memberID string) (here bool) {
 	}
 
 	return
+}
+
+// GetGroup returns the specified group
+func (gm GroupMap) GetGroup(name string) *Group {
+	saveName := strings.ToLower(name)
+
+	return gm[saveName]
+}
+
+//IsGroup is a method created for the Notify method. This is what checks the string after
+//the bot's name call to check if it's a group. In the future, this will be called more than
+//once depending on if the preceeding string was a group. This would be support for notifying
+//multiple groups at once. That does seem like something useful, but not really at this time.
+func (gm GroupMap) IsGroup(groupName string) bool {
+	_, exists := gm[strings.ToLower(groupName)]
+
+	if exists {
+		return true
+	}
+
+	return false
 }
 
 //correctGP is a function that appropriately adds commas and the word "and" where needed
@@ -596,18 +661,4 @@ func checkSeen() func(name string) bool {
 		seenMembers = append(seenMembers, name)
 		return false
 	}
-}
-
-//isGroup is a function created for the Notify method. This is what checks the string after
-//the bot's name call to check if it's a group. In the future, this will be called more than
-//once depending on if the preceeding string was a group. This would be support for notifying
-//multiple groups at once. That does seem like something useful, but not really at this time.
-func isGroup(groupName string) bool {
-	_, exists := Groups[strings.ToLower(groupName)]
-
-	if exists {
-		return true
-	}
-
-	return false
 }

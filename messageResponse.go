@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 )
 
 //User struct defines a user in the context of google's chat api
@@ -15,40 +18,49 @@ type User struct {
 //messageResponse contains pretty much everything important to this
 //bot from gchat's payload
 type messageResponse struct {
-	Message struct {
-		Sender struct {
-			User
-		} `json:"sender"`
+	Message message `json:"message"`
+	Room    space   `json:"space"`
+	Time    string  `json:"eventTime"`
+	Type    string  `json:"type"`
 
-		Mentions []struct {
-			Called struct {
-				User `json:"user"`
-			} `json:"userMention"`
-			Type string `json:"type"`
-		} `json:"annotations"`
+	FromMaster bool
+}
 
-		Text string `json:"text"`
-	} `json:"message"`
+type message struct {
+	Sender   User         `json:"sender"`
+	Mentions []annotation `json:"annotations"`
+	Thread   thread       `json:"thread"`
+	Text     string       `json:"text"`
+}
 
-	Room struct {
-		GID  string `json:"name"`
-		Type string `json:"type"`
-	} `json:"space"`
+type annotation struct {
+	Called userMention `json:"userMention"`
+	Type   string      `json:"type"`
+}
 
-	Time     string `json:"eventTime"`
-	IsMaster bool
+type thread struct {
+	Name string `json:"name"`
+}
+
+type userMention struct {
+	User `json:"user"`
+}
+
+type space struct {
+	GID  string `json:"name"`
+	Type string `json:"type"`
 }
 
 //parseArgs is a method used to take the string passed through the api and make
 //sense of it for the bot.
-func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
-	mr.IsMaster = false
+func (mr *messageResponse) ParseArgs(Groups GroupMgr) (args Arguments, msg string, ok bool) {
+	mr.FromMaster = false
 	//The admin of the bot can be changed via configs, but they are defined by
 	//the id google gives them, incase their name changes, and how they reach out.
 	//i.e. The bot will only recognize the admin if messaged via DM. an admin
 	//shouldn't be doing admin things in front of the common folk.
 	if mr.Room.Type == "DM" && mr.Message.Sender.GID == MasterID {
-		mr.IsMaster = true
+		mr.FromMaster = true
 		//This prepends the botname to the message so that the admin doesn't have to
 		//@ the bot when DM-ing it. The conditional allows you to do either.
 		if !strings.HasPrefix(mr.Message.Text, BotName) {
@@ -82,9 +94,10 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			option != "list" &&
 			option != "syncgroup" &&
 			option != "syncallgroups" &&
+			option != "schedule" &&
 			option != "usage" &&
 			option != "help" {
-			if isGroup(tempArgs[1]) {
+			if Groups.IsGroup(tempArgs[1]) {
 				args["action"] = "notify"
 				args["groupName"] = tempArgs[1]
 			} else {
@@ -93,15 +106,24 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 			}
 		} else {
 			args["action"] = option
-
-			if nArgs < 3 {
-				args["groupName"] = ""
-			} else {
-				args["groupName"] = tempArgs[2]
-			}
 		}
 	} else {
 		args["action"] = "notify"
+	}
+
+	if args["action"] == "schedule" {
+		err := parseScheduleArgs(Groups, tempArgs, &args)
+		if err != nil {
+			ok = false
+			msg = err.Error()
+			return
+		}
+	} else {
+		if nArgs < 3 {
+			args["groupName"] = ""
+		} else {
+			args["groupName"] = tempArgs[2]
+		}
 	}
 
 	//Logic introduced for adding/removing yourself from a group
@@ -140,70 +162,120 @@ func (mr *messageResponse) parseArgs() (args Arguments, msg string, ok bool) {
 
 //inspectMessage method (maybe should be renamed) takes the parsed arguments
 //then reacts accordingly.
-func inspectMessage(msgObj messageResponse) (retMsg, errMsg string, ok bool) {
-	ok = true
-
-	args, msg, okay := msgObj.parseArgs()
-	if !okay {
-		errMsg = msg
-		ok = false
-		return
-	}
-
+func inspectMessage(Groups GroupMgr, Scheduler ScheduleMgr, msgObj messageResponse, args Arguments) (msg string) {
 	switch args["action"] {
 	case "create":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("My apologies, you need to pass a group name to be able to create the group. ```%s```", usage("create"))
-		} else {
-			retMsg = Groups.Create(args["groupName"], args["self"], msgObj)
-		}
+		msg = Groups.Create(args["groupName"], args["self"], msgObj)
 
 	case "disband":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name for me to delete it. ```%s```", usage("disband"))
-		} else {
-			retMsg = Groups.Disband(args["groupName"], msgObj)
-		}
+		msg = Groups.Disband(args["groupName"], msgObj)
 
 	case "add":
-		retMsg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
+		msg = Groups.AddMembers(args["groupName"], args["self"], msgObj)
 
 	case "remove":
-		retMsg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
+		msg = Groups.RemoveMembers(args["groupName"], args["self"], msgObj)
 
 	case "restrict":
-		if args["groupName"] == "" {
-			retMsg = fmt.Sprintf("You'd need to pass a group name to toggle it's privacy settings. ```%s```", usage("restrict"))
-		} else {
-			retMsg = Groups.Restrict(args["groupName"], msgObj)
-		}
+		msg = Groups.Restrict(args["groupName"], msgObj)
 
 	case "notify":
-		retMsg = Groups.Notify(args["groupName"], msgObj)
+		msg = Groups.Notify(args["groupName"], msgObj)
 
 	case "list":
-		retMsg = Groups.List(args["groupName"], msgObj)
+		msg = Groups.List(args["groupName"], msgObj)
 
 	case "syncgroup":
-		retMsg = Groups.SyncGroupMembers(args["groupName"], msgObj)
+		msg = Groups.SyncGroupMembers(args["groupName"], msgObj)
 
 	case "syncallgroups":
-		retMsg = Groups.SyncAllGroups(msgObj)
+		msg = Groups.SyncAllGroups(msgObj)
 
 	case "usageShort":
-		retMsg = usage("usageShort")
+		msg = usage("usageShort")
 
 	case "usage":
-		retMsg = getUsageWithLink(usage(""))
+		msg = getUsageWithLink(usage(""))
 
 	case "help":
-		retMsg = usage("")
+		msg = usage("")
+
+	case "schedule":
+		switch args["subAction"] {
+		case "onetime":
+			msg = Scheduler.CreateOnetime(args, Groups, msgObj)
+		case "recurring":
+			msg = Scheduler.CreateRecurring(args, Groups, msgObj)
+		case "remove":
+			msg = Scheduler.Remove(args, msgObj)
+		case "list":
+			msg = Scheduler.List(msgObj)
+		}
 
 	default:
 		//All of the argument things should be taken care of by the time we get here,
 		//BUT It's better to handle the exceptions than let them bite you.
-		retMsg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
+		msg = "Unknown action? Shouldn't have gotten here tho... reach out for someone to check my innards. You should seriously never see this message."
 	}
 
 	return
+}
+
+func parseScheduleArgs(Groups GroupMgr, elems []string, args *Arguments) error {
+	if len(elems) < 3 {
+		return errors.New("Not enough arguments for schedule action")
+	}
+
+	(*args)["subAction"] = elems[2]
+
+	switch (*args)["subAction"] {
+	case "recurring":
+		fallthrough
+	case "onetime":
+		if len(elems) < 7 {
+			return fmt.Errorf("Not enough arguments for schedule %s action\n ```%s``` ", (*args)["subAction"], usage("schedule:"+(*args)["subAction"]))
+		}
+
+		ptrn := regexp.MustCompile(`^\w{3,20}$`)
+		if !ptrn.Match([]byte(elems[3])) {
+			return fmt.Errorf("Label must be alphanumeric between 3 and 20 characters\n ```%s```", usage("schedule:"+(*args)["subAction"]))
+		}
+		(*args)["label"] = elems[3]
+
+		datetime, err := time.Parse(time.RFC3339, elems[4])
+		if err != nil {
+			return fmt.Errorf("Error parsing your time %q. Must be formatted in RFC3339 format, please try again", elems[4])
+		}
+
+		//the scheduled message has to be at least 10 minutes out.
+		if !datetime.After(time.Now().Add(time.Minute * 9)) {
+			return fmt.Errorf("Scheduled message must be at least 10 minutes away from now")
+		}
+		(*args)["dateTime"] = elems[4]
+
+		if !Groups.IsGroup(elems[5]) {
+			return fmt.Errorf("Specificed group %q not found", elems[5])
+		}
+		(*args)["groupName"] = elems[5]
+
+		(*args)["message"] = strings.Join(elems[6:], " ")
+
+	case "list":
+
+	case "remove":
+		if len(elems) < 4 {
+			return fmt.Errorf("Not enough arguments for schedule %s action\n ```%s``` ", (*args)["subAction"], usage("schedule:"+(*args)["subAction"]))
+		}
+
+		ptrn := regexp.MustCompile(`^\w{3,20}$`)
+		if !ptrn.Match([]byte(elems[3])) {
+			return fmt.Errorf("Label must be alphanumeric between 3 and 20 characters\n ```%s```", usage("schedule:"+(*args)["subAction"]))
+		}
+		(*args)["label"] = elems[3]
+
+	default:
+		return fmt.Errorf("Unknown schedule subaction %q called", elems[2])
+	}
+
+	return nil
 }

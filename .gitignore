@@ -1,3 +1,5 @@
 *.sw*
 secret/
+.load.env
 hgnotify
+.vscode/
