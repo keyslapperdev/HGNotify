@@ -271,3 +271,39 @@ func TestGetLables(t *testing.T) {
 		}
 	})
 }
+
+func TestRecurring(t *testing.T) {
+	schedule := &Schedule{
+		Creator:      "Meee",
+		IsRecurring:  true,
+		CreatedOn:    time.Now(),
+		ExecuteOn:    time.Now().Add(time.Hour * -1),
+		GroupID:      1,
+		MessageLabel: "MessageLabel",
+		MessageText:  "From TestRecurring",
+	}
+
+	t.Run("complete updates recurring execution time", func(t *testing.T) {
+		if !schedule.ExecuteOn.Before(time.Now()) {
+			t.Error("Your test making skills are trash")
+		}
+
+		schedule.complete()
+
+		if schedule.ExecuteOn.Before(time.Now()) {
+			t.Fatalf("Time should be moved to 7 days from now, but is still before now")
+		}
+
+		expectedEnd := time.Now().Add(time.Hour * 167)
+
+		// Due to the specificity of the time.time object, strict equality would
+		// be fail due to nanoseconds. SOO! I'm going with approx time, so I'm fine
+		// the result is within a second.
+		if !expectedEnd.Add(time.Second*-1).Before(schedule.ExecuteOn) && expectedEnd.After(schedule.ExecuteOn) {
+			t.Fatalf("The updated time isn't correct:\nWanted: %v\nGot: %v\n",
+				expectedEnd.Format(time.RFC3339),
+				schedule.ExecuteOn.Format(time.RFC3339),
+			)
+		}
+	})
+}

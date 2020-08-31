@@ -260,7 +260,7 @@ func (s *Schedule) complete() {
 	if s.IsRecurring {
 		// Since the scheduled messages are all weekly, once they've
 		// completed a run, add 7 days (168 hours)
-		s.ExecuteOn.Add(time.Hour * 168)
+		s.ExecuteOn = s.ExecuteOn.Add(time.Hour * 168)
 		s.StartTimer()
 	} else {
 		s.IsFinished = true
