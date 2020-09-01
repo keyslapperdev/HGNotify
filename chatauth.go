@@ -61,8 +61,6 @@ func isValidRequest(authToken string) bool {
 		return false
 	}
 
-	log.Println(verified)
-
 	if verified {
 		cachedAuthToken = authToken
 		return true
