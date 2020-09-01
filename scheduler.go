@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -219,6 +220,12 @@ func (s *Schedule) StartTimer() {
 
 // Send will send out the message scheduled
 func (s *Schedule) Send() {
+	if os.Getenv("SERVICE_SEND") != "true" {
+		log.Println("Skipping send... to send set USE_CHAT_SERVICE to true")
+		s.complete()
+		return
+	}
+
 	// As of right now, because the logic to generate the "Notify"
 	// message soley lives within a method for GroupMap and requires
 	// a messageResponse object to create, to get the message I have
