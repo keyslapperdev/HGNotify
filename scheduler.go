@@ -221,7 +221,7 @@ func (s *Schedule) StartTimer() {
 // Send will send out the message scheduled
 func (s *Schedule) Send() {
 	if os.Getenv("SERVICE_SEND") != "true" {
-		log.Println("Skipping send... to send set USE_CHAT_SERVICE to true")
+		log.Printf("Skipping send for schedule %d... to send set USE_CHAT_SERVICE to true", s.ID)
 		s.complete()
 		return
 	}
