@@ -627,7 +627,8 @@ func TestNotifyGroup(t *testing.T) {
 		gotText := Groups.Notify(saveName, msgObj)
 
 		if strings.Contains(gotText, BotName) {
-			t.Fatalf("Botname should not be in generated text\nGot: %q",
+			t.Fatalf("Botname %q should not be in generated text\nGot: %q",
+                BotName,
 				gotText,
 			)
 		}
@@ -671,7 +672,8 @@ func TestNotifyGroup(t *testing.T) {
 		gotText := Groups.Notify(saveName, msgObj)
 
 		if strings.Contains(gotText, BotName) {
-			t.Fatalf("Botname should not be in generated text\nGot: %q",
+			t.Fatalf("Botname %q should not be in generated text\nGot: %q",
+                BotName,
 				gotText,
 			)
 		}
